@@ -1,0 +1,343 @@
+BOOKSHELF CMS — CHAPTER 1 IMPLEMENTATION ROADMAP
+Mirrors: "Django 5 by Example", Chapter 1 — Building a Blog Application
+Scope rule: every task below maps 1:1 to a section in Chapter 1. Nothing from
+Chapter 2+ (pagination, class-based views, forms, comments, tagging, search,
+canonical URLs) is included on purpose — see OUT OF SCOPE at the end.
+
+============================================================
+0. PROJECT / DOMAIN MAP
+============================================================
+Django project name   : bookshelf         (book uses: mysite)
+Django app name       : catalog           (book uses: blog)
+Core model            : Book              (book uses: Post)
+Custom manager        : PublishedManager  -> Book.published
+Views                 : book_list, book_detail
+URL namespace          : catalog
+Superuser role         : cataloger/admin who manages BookShelf entries
+
+Target end-state directory tree (Ref: "Creating your first project",
+"Creating an application"):
+
+bookshelf/
+    manage.py
+    bookshelf/
+        __init__.py
+        asgi.py
+        settings.py
+        urls.py
+        wsgi.py
+    catalog/
+        __init__.py
+        admin.py
+        apps.py
+        migrations/
+            __init__.py
+            0001_initial.py
+        models.py
+        tests.py
+        views.py
+        urls.py
+        templates/
+            catalog/
+                base.html
+                book/
+                    list.html
+                    detail.html
+
+============================================================
+PHASE 0 — ENVIRONMENT & TOOLING
+============================================================
+Book ref: "Installing Python", "Creating a Python virtual environment",
+          "Installing Django" / "Installing Django with pip"
+
+Tasks:
+[ ] Confirm Python 3.12 with `python3 --version`
+[ ] Create venv: `python -m venv bookshelf_env`
+[ ] Activate it (source bookshelf_env/bin/activate, or .\bookshelf_env\Scripts\activate)
+[ ] `python -m pip install Django~=5.2`
+[ ] Verify: `python -m django --version` -> starts with 5.2
+
+Deliverable: requirements.txt containing `Django~=5.2`
+Definition of done: shell prompt shows (bookshelf_env), django --version passes.
+
+============================================================
+PHASE 1 — PROJECT BOOTSTRAP
+============================================================
+Book ref: "Creating your first project", "Applying initial database
+          migrations", "Running the development server", "Project settings",
+          "Projects and applications"
+
+Tasks:
+[ ] `django-admin startproject bookshelf`
+[ ] Inspect generated files against the book's manage.py / settings.py /
+    urls.py / asgi.py / wsgi.py breakdown
+[ ] `cd bookshelf && python manage.py migrate` — apply default
+    contenttypes/auth/admin/sessions migrations
+[ ] `python manage.py runserver` — confirm the default "it worked" page at
+    http://127.0.0.1:8000/
+[ ] Read settings.py and annotate (as code comments) what DEBUG,
+    ALLOWED_HOSTS, INSTALLED_APPS, MIDDLEWARE, ROOT_URLCONF, DATABASES,
+    LANGUAGE_CODE, USE_TZ each control, using bookshelf as the example
+
+Deliverable: running dev server + annotated settings.py
+Definition of done: `python manage.py migrate` ends clean, default page loads.
+
+============================================================
+PHASE 2 — APP CREATION & DATA MODELING
+============================================================
+Book ref: "Creating an application", "Creating the blog data models" and
+          all its subsections
+
+Tasks:
+[ ] `python manage.py startapp catalog`
+[ ] Inspect generated admin.py / apps.py / migrations/ / models.py /
+    tests.py / views.py
+
+Build the Book model incrementally, exactly following the chapter's build
+order (do not skip straight to the final version — each sub-step is its own
+checkpoint):
+
+  a) Base fields (Ref: "Creating the Post model")
+     title    -> CharField(max_length=250)
+     slug     -> SlugField(max_length=250)
+     synopsis -> TextField()      [maps to Post.body]
+     __str__  -> return self.title
+
+  b) Datetime fields (Ref: "Adding datetime fields")
+     publish  -> DateTimeField(default=timezone.now)
+                 [the date/time this catalog entry becomes publicly
+                 visible — an editorial/CMS date, not the book's real
+                 print date]
+     created  -> DateTimeField(auto_now_add=True)
+     updated  -> DateTimeField(auto_now=True)
+     (optional aside, per the book: try db_default=Now() on `publish`
+     instead of default=timezone.now to see the DB-computed default)
+
+  c) Default sort order (Ref: "Defining a default sort order")
+     class Meta: ordering = ['-publish']
+
+  d) Database index (Ref: "Adding a database index")
+     class Meta: indexes = [models.Index(fields=['-publish'])]
+
+  e) Activate the app (Ref: "Activating the application")
+     Add 'catalog.apps.CatalogConfig' to INSTALLED_APPS in
+     bookshelf/settings.py
+
+  f) Status field (Ref: "Adding a status field")
+     class Status(models.TextChoices):
+         DRAFT = 'DF', 'Draft'
+         PUBLISHED = 'PB', 'Published'
+     status -> CharField(max_length=2, choices=Status, default=Status.DRAFT)
+
+  g) Many-to-one relationship (Ref: "Adding a many-to-one relationship")
+     added_by -> ForeignKey(settings.AUTH_USER_MODEL, on_delete=CASCADE,
+                             related_name='books_added')
+     [represents the cataloger/librarian account responsible for this
+     record — intentionally kept many-to-one to mirror Post.author.
+     A real-world "book has many authors" relationship is many-to-many
+     and is out of scope for Chapter 1]
+
+Deliverable: catalog/models.py with the fully assembled Book model
+Definition of done: model imports cleanly, `python manage.py check` passes.
+
+------------------------------------------------------------
+PHASE 2b — OPTIONAL / STRETCH: Composite primary key
+------------------------------------------------------------
+Book ref: "Using the CompositePrimaryKey field"
+
+Task:
+[ ] Add a ReaderFavorite model joining User and Book on a composite key:
+    pk      -> models.CompositePrimaryKey("reader", "book")
+    reader  -> ForeignKey(AUTH_USER_MODEL, on_delete=CASCADE)
+    book    -> ForeignKey('catalog.Book', on_delete=CASCADE)
+    created -> DateTimeField(auto_now_add=True)
+
+Deliverable: additional model in catalog/models.py, deliberately NOT
+registered in admin.py (the book notes CompositePrimaryKey models can't
+currently be admin-registered — ticket #35953).
+
+============================================================
+PHASE 3 — MIGRATIONS
+============================================================
+Book ref: "Creating and applying migrations"
+
+Tasks:
+[ ] `python manage.py makemigrations catalog`
+[ ] `python manage.py sqlmigrate catalog 0001` — inspect generated SQL,
+    confirm: CREATE TABLE catalog_book, the descending index on publish,
+    the implicit indexes on slug and added_by_id
+[ ] `python manage.py migrate`
+
+Deliverable: catalog/migrations/0001_initial.py + a saved copy of the
+sqlmigrate output for reference
+Definition of done: `migrate` reports "Applying catalog.0001_initial... OK"
+
+============================================================
+PHASE 4 — ADMINISTRATION SITE
+============================================================
+Book ref: "Creating an administration site for models" and all subsections
+
+Tasks:
+[ ] `python manage.py createsuperuser`
+[ ] Log in at /admin/
+[ ] Register the model — start with the plain form (Ref: "Adding models to
+    the administration site"):
+      admin.site.register(Book)
+[ ] Refactor to a customized ModelAdmin (Ref: "Customizing how models are
+    displayed"):
+      @admin.register(Book)
+      class BookAdmin(admin.ModelAdmin):
+          list_display = ['title', 'slug', 'added_by', 'publish', 'status']
+          list_filter = ['status', 'created', 'publish', 'added_by']
+          search_fields = ['title', 'synopsis']
+          prepopulated_fields = {'slug': ('title',)}
+          raw_id_fields = ['added_by']
+          date_hierarchy = 'publish'
+          ordering = ['status', 'publish']
+[ ] Add facet counts (Ref: "Adding facet counts to filters"):
+      show_facets = admin.ShowFacets.ALWAYS
+[ ] Create at least 2 books via the admin UI with different statuses and
+    added_by users, to visually confirm: autofilled slug, raw-id widget,
+    date hierarchy nav, search bar, and filter facet counts
+
+Deliverable: catalog/admin.py
+Definition of done: /admin/catalog/book/ shows list_display columns,
+sidebar filters with facet counts, and working search.
+
+============================================================
+PHASE 5 — ORM & QUERYSET PRACTICE (shell exercises)
+============================================================
+Book ref: "Working with QuerySets and managers" and all subsections
+
+Run all of the following in `python manage.py shell` and keep a transcript.
+
+[ ] Creating objects (Ref: "Creating objects")
+    - User.objects.get(username=...), build Book(...) in memory, .save()
+    - Book.objects.create(...)
+    - User.objects.get_or_create(username=...)
+[ ] Updating objects (Ref: "Updating objects")
+    - mutate book.title, call .save() again
+[ ] Retrieving objects (Ref: "Retrieving objects")
+    - Book.objects.all()
+[ ] Filtering + field lookups (Ref: "Filtering objects", "Using field
+    lookups")
+    - exact, iexact, contains/icontains, in, gt/gte/lt/lte,
+      startswith/istartswith, endswith/iendswith
+    - date lookups on `publish`: __date, __year, __month, __day, __date__gt
+    - related-field lookup: added_by__username
+[ ] Chaining filters (Ref: "Chaining filters")
+[ ] Excluding objects (Ref: "Excluding objects")
+[ ] Ordering objects (Ref: "Ordering objects")
+    - order_by('title'), order_by('-title'), order_by('added_by','title'),
+      order_by('?')
+[ ] Limiting QuerySets (Ref: "Limiting QuerySets") — slicing, e.g. [:5]
+[ ] Counting objects (Ref: "Counting objects") — .count()
+[ ] Checking existence (Ref: "Checking if an object exists") — .exists()
+[ ] Deleting objects (Ref: "Deleting objects") — .delete()
+[ ] Complex lookups with Q objects (Ref: "Complex lookups with Q objects")
+    - OR query: titles starting with two different prefixes
+[ ] QuerySet laziness (Ref: "When QuerySets are evaluated")
+    - demonstrate an unevaluated QuerySet vs. forcing evaluation with
+      list(), len(), bool(), or iteration
+[ ] Custom manager (Ref: "Creating model managers")
+    - class PublishedManager(models.Manager): filter status=PUBLISHED
+    - expose as Book.published, keep Book.objects as default
+
+Deliverable: shell_session_notes.txt (commands + real output) and the
+PublishedManager added to catalog/models.py
+Definition of done: Book.published.all() returns only PUBLISHED books.
+
+============================================================
+PHASE 6 — VIEWS, URLS & TEMPLATES
+============================================================
+Book ref: "Building list and detail views" and all subsections
+
+Tasks:
+[ ] catalog/views.py
+    - book_list(request): Book.published.all(), render
+      'catalog/book/list.html'
+    - book_detail(request, id): get_object_or_404(Book, id=id,
+      status=Book.Status.PUBLISHED), render 'catalog/book/detail.html'
+      (Ref: "Using the get_object_or_404 shortcut")
+[ ] catalog/urls.py (Ref: "Adding URL patterns for your views")
+    - app_name = 'catalog'
+    - path('', views.book_list, name='book_list')
+    - path('<int:id>/', views.book_detail, name='book_detail')
+[ ] bookshelf/urls.py — include catalog.urls under 'catalog/' with
+    namespace='catalog'
+[ ] templates/catalog/base.html (Ref: "Creating a base template")
+    - {% load static %}, {% block title %}, {% block content %}, sidebar
+[ ] templates/catalog/book/list.html (Ref: "Creating the post list
+    template")
+    - extends base, loop over books, link via
+      {% url 'catalog:book_detail' book.id %}, apply
+      {{ book.synopsis|truncatewords:30|linebreaks }}
+[ ] templates/catalog/book/detail.html (Ref: "Creating the post detail
+    template")
+[ ] Verify (Ref: "Accessing our application")
+    - http://127.0.0.1:8000/catalog/ shows published books
+    - http://127.0.0.1:8000/catalog/<id>/ shows a single book
+
+Deliverable: views.py, urls.py (app + project), 3 templates, working routes
+Definition of done: both list and detail pages render live data with
+working links.
+
+============================================================
+PHASE 7 — REQUEST/RESPONSE REVIEW & WRAP-UP
+============================================================
+Book ref: "The request/response cycle", "Management commands used in this
+          chapter"
+
+Tasks:
+[ ] Trace one full request to /catalog/3/ in your own words for the
+    BookShelf domain: URL dispatch -> book_detail view -> Book.published
+    ORM query -> detail.html render -> HttpResponse (mirrors Figure 1.22)
+[ ] Compile the management-commands cheat sheet below into your own notes
+
+Deliverable: a one-page written walkthrough + the cheat sheet
+Definition of done: you can explain the cycle without looking at the book.
+
+============================================================
+MANAGEMENT COMMAND CHEAT SHEET (bookshelf/catalog equivalents)
+============================================================
+django-admin startproject bookshelf
+python manage.py startapp catalog
+python manage.py makemigrations catalog
+python manage.py sqlmigrate catalog 0001
+python manage.py migrate
+python manage.py runserver
+python manage.py shell
+python manage.py createsuperuser
+
+============================================================
+DOMAIN MAPPING TABLE (Blog -> BookShelf)
+============================================================
+mysite project        -> bookshelf project
+blog app               -> catalog app
+Post model             -> Book model
+Post.title             -> Book.title
+Post.slug              -> Book.slug
+Post.author (FK->User) -> Book.added_by (FK->User)
+Post.body               -> Book.synopsis
+Post.publish            -> Book.publish
+Post.created            -> Book.created
+Post.updated            -> Book.updated
+Post.status              -> Book.status
+related_name 'blog_posts' -> related_name 'books_added'
+PublishedManager          -> PublishedManager
+post_list / post_detail   -> book_list / book_detail
+blog:post_list             -> catalog:book_list
+blog:post_detail            -> catalog:book_detail
+FavouritePost (composite PK example) -> ReaderFavorite (composite PK example)
+
+============================================================
+OUT OF SCOPE (deliberately excluded — covered in later chapters)
+============================================================
+- Pagination
+- Class-based views
+- Canonical / SEO-friendly URLs
+- Forms (share-by-email, comments)
+- Tagging, related-post recommendations, search
+- Any many-to-many "real" book-authors relationship
+
+END OF ROADMAP

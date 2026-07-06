@@ -1,0 +1,132 @@
+[
+    {
+        "model": "catalog.book",
+        "fields": {
+            "title": "The Great Gatsby",
+            "slug": "the-great-gatsby",
+            "synopsis": "A story of the fabulously wealthy Jay Gatsby and his love for the beautiful Daisy Buchanan, of lavish parties on Long Island at a time when the New York Times noted ‘gin was the national drink and sex the national obsession’.",
+            "added_by": ["admin"],
+            "publish": "2025-05-10T12:00:00Z",
+            "status": "PB",
+            "created": "2025-05-10T12:00:00Z",
+            "updated": "2025-06-01T08:30:00Z"
+        }
+    },
+    {
+        "model": "catalog.book",
+        "fields": {
+            "title": "To Kill a Mockingbird",
+            "slug": "to-kill-a-mockingbird",
+            "synopsis": "The unforgettable novel of a childhood in a sleepy Southern town and the crisis of conscience that rocked it. Compassionate, dramatic, and deeply moving.",
+            "added_by": ["admin"],
+            "publish": "2025-07-15T09:00:00Z",
+            "status": "PB",
+            "created": "2025-07-15T09:00:00Z",
+            "updated": "2025-07-15T09:00:00Z"
+        }
+    },
+    {
+        "model": "catalog.book",
+        "fields": {
+            "title": "1984",
+            "slug": "1984",
+            "synopsis": "Among the seminal texts of the 20th century, 1984 is a rare work that grows more haunting as its dystopian prophecies become reality. Winston Smith wrestles with oppression in Oceania.",
+            "added_by": ["admin"],
+            "publish": "2025-08-20T14:45:00Z",
+            "status": "PB",
+            "created": "2025-08-20T14:45:00Z",
+            "updated": "2025-08-21T10:15:00Z"
+        }
+    },
+    {
+        "model": "catalog.book",
+        "fields": {
+            "title": "Pride and Prejudice",
+            "slug": "pride-and-prejudice",
+            "synopsis": "When Elizabeth Bennet first meets eligible bachelor Fitzwilliam Darcy, she thinks him arrogant and conceited; he is indifferent to her good looks and lively mind.",
+            "added_by": ["admin"],
+            "publish": "2025-09-01T16:00:00Z",
+            "status": "PB",
+            "created": "2025-09-01T16:00:00Z",
+            "updated": "2025-09-01T16:00:00Z"
+        }
+    },
+    {
+        "model": "catalog.book",
+        "fields": {
+            "title": "The Catcher in the Rye",
+            "slug": "the-catcher-in-the-rye",
+            "synopsis": "The hero-narrator of this novel, Holden Caulfield, is an ancient child of sixteen, a native New Yorker, who has been expelled from an exclusive prep school.",
+            "added_by": ["admin"],
+            "publish": "2025-10-05T11:30:00Z",
+            "status": "PB",
+            "created": "2025-10-05T11:30:00Z",
+            "updated": "2025-10-05T11:30:00Z"
+        }
+    },
+    {
+        "model": "catalog.book",
+        "fields": {
+            "title": "Moby Dick",
+            "slug": "moby-dick",
+            "synopsis": "A masterpiece of storytelling, this epic saga pits Ahab, a brooding and fanatical sea captain, against a great white whale that once crippled him.",
+            "added_by": ["admin"],
+            "publish": "2025-11-12T08:00:00Z",
+            "status": "PB",
+            "created": "2025-11-12T08:00:00Z",
+            "updated": "2025-11-12T08:00:00Z"
+        }
+    },
+    {
+        "model": "catalog.book",
+        "fields": {
+            "title": "War and Peace",
+            "slug": "war-and-peace",
+            "synopsis": "Epic in scale, War and Peace delineates in graphic detail events leading up to Napoleon's invasion of Russia, and the impact of the Napoleonic era on Tsarist society.",
+            "added_by": ["admin"],
+            "publish": "2025-12-01T15:00:00Z",
+            "status": "DF",
+            "created": "2025-12-01T15:00:00Z",
+            "updated": "2025-12-01T15:00:00Z"
+        }
+    },
+    {
+        "model": "catalog.book",
+        "fields": {
+            "title": "The Hobbit",
+            "slug": "the-hobbit",
+            "synopsis": "Bilbo Baggins is a hobbit who enjoys a comfortable, unambitious life. But his contentment is disturbed when the wizard Gandalf and a company of dwarves arrive on his doorstep.",
+            "added_by": ["admin"],
+            "publish": "2026-01-10T10:00:00Z",
+            "status": "PB",
+            "created": "2026-01-10T10:00:00Z",
+            "updated": "2026-01-15T12:00:00Z"
+        }
+    },
+    {
+        "model": "catalog.book",
+        "fields": {
+            "title": "Fahrenheit 451",
+            "slug": "fahrenheit-451",
+            "synopsis": "Guy Montag is a fireman. His job is to destroy the most illegal of commodities, the printed book, along with the houses in which they are hidden.",
+            "added_by": ["admin"],
+            "publish": "2026-02-14T09:15:00Z",
+            "status": "DF",
+            "created": "2026-02-14T09:15:00Z",
+            "updated": "2026-02-14T09:15:00Z"
+        }
+    },
+    {
+        "model": "catalog.book",
+        "fields": {
+            "title": "Brave New World",
+            "slug": "brave-new-world",
+            "synopsis": "Aldous Huxley's profoundly important classic of world literature, Brave New World is a searching vision of an unequal, technologically-advanced future.",
+            "added_by": ["admin"],
+            "publish": "2026-03-01T11:45:00Z",
+            "status": "PB",
+            "created": "2026-03-01T11:45:00Z",
+            "updated": "2026-03-01T11:45:00Z"
+        }
+    }
+]

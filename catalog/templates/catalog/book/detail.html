@@ -1,0 +1,51 @@
+{% extends "catalog/base.html" %}
+
+{% block title %}{{ book.title }} - BookShelf CMS{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'catalog:book_list' %}">Catalog</a></li>
+        <li class="breadcrumb-item active" aria-current="page">{{ book.title }}</li>
+    </ol>
+</nav>
+
+<article>
+    <h1 class="display-5 mb-3">{{ book.title }}</h1>
+
+    <!-- Metadata Box -->
+    <div class="detail-metadata">
+        <div class="row">
+            <div class="col-md-3">
+                <strong>Added by:</strong><br>
+                {{ book.added_by.username|default:"System" }}
+            </div>
+            <div class="col-md-3">
+                <strong>Publication Date:</strong><br>
+                {{ book.publish|date:"F j, Y" }}
+            </div>
+            <div class="col-md-3">
+                <strong>Status:</strong><br>
+                <span class="badge {% if book.status == 'PB' %}bg-success{% else %}bg-secondary{% endif %}">
+                    {{ book.get_status_display }}
+                </span>
+            </div>
+            <div class="col-md-3">
+                <strong>Last Updated:</strong><br>
+                {{ book.updated|date:"M d, Y H:i" }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Synopsis -->
+    <div class="detail-synopsis mt-4">
+        {{ book.synopsis|linebreaks }}
+    </div>
+
+    <!-- Back link -->
+    <a href="{% url 'catalog:book_list' %}" class="btn btn-outline-secondary mt-4">
+        &larr; Back to Catalog
+    </a>
+</article>
+{% endblock %}

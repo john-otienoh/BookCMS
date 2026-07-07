@@ -1,6 +1,9 @@
 from django.shortcuts import get_object_or_404, render
 from .models import Book, ReaderFavourite
 from django.core.paginator import Paginator
+from django.views.generic import ListView
+from .forms import EmailBookForm
+from django.core.mail import send_mail
 
 # Create your views here.
 def book_list(request):
@@ -26,4 +29,55 @@ def book_detail(request, book):
         request,
         "catalog/book/detail.html",
         {"book": book}
+    )
+
+
+class BookListView(ListView):
+    """
+    Displays a paginated list of published books.
+    """
+    model = Book                                
+    context_object_name = 'books'                 
+    template_name = 'catalog/book/list.html'      
+    paginate_by = 3                              
+
+    def get_queryset(self):
+        return Book.published.all()
+    
+    def paginate_queryset(self, queryset, page_size):
+        """custom paginate query_set to avoid 404 on out-of-range page numbers."""
+        paginator = self.get_paginator(
+            queryset, page_size, orphans=self.get_paginate_orphans(),
+            allow_empty_first_page=self.get_allow_empty()
+        )
+        page_number = self.request.GET.get(self.page_kwarg, 1)
+        page_obj = paginator.get_page(page_number)
+        return (paginator, page_obj, page_obj.object_list, page_obj.has_other_pages())
+    
+def book_share(request, book):
+    book = get_object_or_404(
+        Book, slug=book, status=Book.Status.PUBLISHED
+    )
+    sent = False
+    if request.method == 'POST':
+        form = EmailBookForm(request.POST)
+        if form.is_valid():
+            cd = form.cleaned_data
+            book_url = request.build_absolute_uri(
+                book.get_absolute_url()
+            )
+            subject = (f"{cd['name']} ({cd['email']}) " f"recommends you read {book.title}")
+            message = (
+                f"Read {book.title} at {book_url}\n\n"
+                f"{cd['name']}'s comments: {cd['comments']}"
+            )
+            send_mail(subject=subject, message=message, from_email=None, recipient_list=[cd['to']])
+            sent = True
+    else:   
+        form = EmailBookForm()
+
+    return render(
+        request,
+        'catalog/book/share.html',
+        {'book': book, 'form': form, 'sent': sent}
     )

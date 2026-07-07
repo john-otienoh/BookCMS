@@ -1,0 +1,64 @@
+{% extends "catalog/base.html" %}
+
+{% block title %}Share "{{ book.title }}" - BookShelf CMS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+
+        {% if sent %}
+        <!-- Success message -->
+        <div class="alert alert-success shadow-sm" role="alert">
+            <h4 class="alert-heading"><i class="bi bi-check-circle-fill"></i> Email sent!</h4>
+            <p>"<strong>{{ book.title }}</strong>" was successfully shared to
+            <strong>{{ form.cleaned_data.to }}</strong>.</p>
+            <hr>
+            <p class="mb-0">
+                <a href="{% url 'catalog:book_detail' book.slug %}" class="btn btn-outline-success btn-sm">
+                    &larr; Back to the book
+                </a>
+            </p>
+        </div>
+        {% else %}
+        <!-- Share form -->
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h1 class="card-title mb-3">
+                    <i class="bi bi-envelope-fill text-primary"></i> Share "{{ book.title }}"
+                </h1>
+                <p class="text-muted">Recommend this book to a friend via email.</p>
+
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label for="{{ field.id_for_label }}" class="form-label">
+                            {{ field.label }}
+                        </label>
+                        {{ field }}
+                        {% if field.errors %}
+                            <div class="text-danger small mt-1">{{ field.errors|striptags }}</div>
+                        {% endif %}
+                        {% if field.help_text %}
+                            <div class="form-text">{{ field.help_text }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'catalog:book_detail' book.slug %}" class="btn btn-outline-secondary me-md-2">
+                            Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send-fill"></i> Send Email
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}

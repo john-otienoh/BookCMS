@@ -44,8 +44,14 @@
     </div>
 
     <!-- Back link -->
-    <a href="{% url 'catalog:book_list' %}" class="btn btn-outline-secondary mt-4">
-        &larr; Back to Catalog
-    </a>
+    <div class="mt-4">
+        <a href="{% url 'catalog:book_list' %}" class="btn btn-outline-secondary">
+            &larr; Back to Catalog
+        </a>
+        <a href="{% url 'catalog:book_share' book.slug %}" class="btn btn-outline-primary me-2">
+            <i class="bi bi-share-fill"></i> Share
+        </a>
+    </div>
+   
 </article>
 {% endblock %}

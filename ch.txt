@@ -607,6 +607,7 @@ Tasks:
       >>> from django.core.mail import send_mail
       >>> send_mail('Test', 'Hello from BookShelf', None, ['you@gmail.com'],
       ...           fail_silently=False)
+      
 [ ] Wire the real send in book_share (Ref: "Sending emails in views"):
       from django.core.mail import send_mail
       post_url = request.build_absolute_uri(book.get_absolute_url())

@@ -72,6 +72,19 @@
             background-color: #fff;
             border-top: 1px solid #dee2e6;
         }
+        .pagination .page-link {
+            color: var(--bookshelf-primary);
+            border-radius: 0.25rem;
+            margin: 0 2px;
+        }
+        .pagination .page-item.active .page-link {
+            background-color: var(--bookshelf-accent);
+            border-color: var(--bookshelf-accent);
+        }
+        .pagination .page-item.disabled .page-link {
+            color: #6c757d;
+            pointer-events: none;
+        }
     </style>
 
     {% block extra_head %}{% endblock %}

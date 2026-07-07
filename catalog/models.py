@@ -15,7 +15,7 @@ class Book(models.Model):
         PUBLISHED = 'PB', 'Published'
     
     title = models.CharField(max_length=250)
-    slug = models.SlugField(max_length=250)
+    slug = models.SlugField(max_length=250, unique=True)
     synopsis = models.TextField()
     added_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,related_name='books_added'
@@ -36,7 +36,12 @@ class Book(models.Model):
         return (self.slug,)
     
     def get_absolute_url(self):
-        return reverse( 'catalog:book_detail', args=[self.id] )
+        return reverse(
+            'catalog:book_detail', 
+            args=[
+                self.slug,
+            ] 
+        )
     
     class Meta:
         ordering = ["-publish"]

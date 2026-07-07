@@ -15,7 +15,7 @@
         <div class="card book-card h-100 shadow-sm">
             <div class="card-body d-flex flex-column">
                 <h5 class="card-title">
-                    <a href="{% url 'catalog:book_detail' book.id %}"
+                    <a href="{{ book.get_absolute_url }}"
                        class="text-decoration-none stretched-link">
                         {{ book.title }}
                     </a>

@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from django.conf import settings
+from django.urls import reverse
 
 class PublishedManager(models.Manager):
     def get_queryset(self):
@@ -33,6 +34,9 @@ class Book(models.Model):
     
     def natural_key(self):
         return (self.slug,)
+    
+    def get_absolute_url(self):
+        return reverse( 'catalog:book_detail', args=[self.id] )
     
     class Meta:
         ordering = ["-publish"]

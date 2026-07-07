@@ -43,15 +43,50 @@
         {{ book.synopsis|linebreaks }}
     </div>
 
-    <!-- Back link -->
+    <!-- Action Buttons -->
     <div class="mt-4">
-        <a href="{% url 'catalog:book_list' %}" class="btn btn-outline-secondary">
-            &larr; Back to Catalog
-        </a>
         <a href="{% url 'catalog:book_share' book.slug %}" class="btn btn-outline-primary me-2">
             <i class="bi bi-share-fill"></i> Share
         </a>
+        {% comment %} <a href="{% url 'catalog:book_review' book.slug %}" class="btn btn-outline-success me-2">
+            <i class="bi bi-pencil-square"></i> Write a review
+        </a> {% endcomment %}
+        <a href="{% url 'catalog:book_list' %}" class="btn btn-outline-secondary">
+            &larr; Back to Catalog
+        </a>
     </div>
-   
+
 </article>
+
+<!-- Reviews Section -->
+<hr class="my-5">
+<section id="reviews">
+    {% with reviews.count as total_reviews %}
+        <h2 class="mb-4">{{ total_reviews }} review{{ total_reviews|pluralize }}</h2>
+    {% endwith %}
+
+    {% for review in reviews %}
+        <div class="card mb-3 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <h6 class="card-subtitle mb-2 text-muted">
+                        Review {{ forloop.counter }} by <strong>{{ review.name }}</strong>
+                    </h6>
+                    <small class="text-muted">{{ review.created|date:"M d, Y" }}</small>
+                </div>
+                <p class="card-text mt-2">{{ review.body|linebreaks }}</p>
+            </div>
+        </div>
+    {% empty %}
+        <div class="alert alert-light border">There are no reviews yet. Be the first to share your thoughts!</div>
+    {% endfor %}
+
+    <!-- Inline Review Form -->
+    <div class="card mt-4 shadow-sm">
+        <div class="card-body">
+            {% include "catalog/book/includes/review_form.html" %}
+        </div>
+    </div>
+</section>
+
 {% endblock %}

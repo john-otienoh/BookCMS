@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Book,  ReaderFavourite
+from .models import Book,  ReaderFavourite, Review
 
 # Register your models here.
 @admin.register(Book)
@@ -19,3 +19,10 @@ class BookAdmin(admin.ModelAdmin):
 #     search_fields = ['book']
 #     ordering = ['created']
 #     show_facets = admin.ShowFacets.ALWAYS
+
+@admin.register(Review) 
+class ReviewAdmin(admin.ModelAdmin): 
+    list_display = ['name', 'email', 'book', 'created', 'active'] 
+    list_filter = ['active', 'created', 'updated'] 
+    search_fields = ['name', 'email', 'body']
+    show_facets = admin.ShowFacets.ALWAYS

@@ -1,14 +1,15 @@
 from django.shortcuts import get_object_or_404, render
-from .models import Book, ReaderFavourite
+from .models import Book, ReaderFavourite, Review
 from django.core.paginator import Paginator
 from django.views.generic import ListView
-from .forms import EmailBookForm
+from .forms import EmailBookForm, ReviewForm
+from django.views.decorators.http import require_POST
 from django.core.mail import send_mail
 
 # Create your views here.
 def book_list(request):
     published_books = Book.published.all()
-    paginator = Paginator(published_books, per_page=3)
+    paginator = Paginator(published_books, per_page=4)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     is_paginated = page_obj.paginator.num_pages > 1 
@@ -25,10 +26,12 @@ def book_detail(request, book):
         status=Book.Status.PUBLISHED,
         slug=book
     )
+    reviews = book.reviews.filter(active=True)
+    form = ReviewForm()
     return render(
         request,
         "catalog/book/detail.html",
-        {"book": book}
+        {"book": book, 'reviews': reviews, 'form': form}
     )
 
 
@@ -39,7 +42,7 @@ class BookListView(ListView):
     model = Book                                
     context_object_name = 'books'                 
     template_name = 'catalog/book/list.html'      
-    paginate_by = 3                              
+    paginate_by = 4                             
 
     def get_queryset(self):
         return Book.published.all()
@@ -69,7 +72,7 @@ def book_share(request, book):
             subject = (f"{cd['name']} ({cd['email']}) " f"recommends you read {book.title}")
             message = (
                 f"Read {book.title} at {book_url}\n\n"
-                f"{cd['name']}'s comments: {cd['comments']}"
+                f"{cd['name']}'s reviews: {cd['reviews']}"
             )
             send_mail(subject=subject, message=message, from_email=None, recipient_list=[cd['to']])
             sent = True
@@ -81,3 +84,20 @@ def book_share(request, book):
         'catalog/book/share.html',
         {'book': book, 'form': form, 'sent': sent}
     )
+
+@require_POST
+def book_review(request, book):
+    book = get_object_or_404(
+        Book, slug=book, status=Book.Status.PUBLISHED
+    )
+    review = None
+    form = ReviewForm(data=request.POST)
+    if form.is_valid():
+        review = form.save(commit=False)
+        review.book = book
+        review.save()
+
+    return render(
+    request, 'catalog/book/review.html', 
+    {'book': book, 'review': review, 'form': form}
+)

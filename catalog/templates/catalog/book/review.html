@@ -1,0 +1,30 @@
+{% extends "catalog/base.html" %}
+
+{% block title %}Add a review - BookShelf CMS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+
+        {% if review %}
+        <!-- Success state -->
+        <div class="alert alert-success shadow-sm" role="alert">
+            <h4 class="alert-heading"><i class="bi bi-check-circle-fill"></i> Review submitted!</h4>
+            <p>Your review has been added for <strong>{{ book.title }}</strong>.</p>
+            <hr>
+            <a href="{% url 'catalog:book_detail' book.slug %}" class="btn btn-outline-success btn-sm">
+                &larr; Back to the book
+            </a>
+        </div>
+        {% else %}
+        <!-- Form state -->
+        <div class="card shadow-sm">
+            <div class="card-body">
+                {% include "catalog/book/includes/review_form.html" %}
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}

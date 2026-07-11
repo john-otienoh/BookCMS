@@ -1,30 +1,26 @@
 {% extends "catalog/base.html" %}
-
 {% block title %}Add a review - BookShelf CMS{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
-
-        {% if review %}
-        <!-- Success state -->
-        <div class="alert alert-success shadow-sm" role="alert">
-            <h4 class="alert-heading"><i class="bi bi-check-circle-fill"></i> Review submitted!</h4>
-            <p>Your review has been added for <strong>{{ book.title }}</strong>.</p>
-            <hr>
-            <a href="{% url 'catalog:book_detail' book.slug %}" class="btn btn-outline-success btn-sm">
-                &larr; Back to the book
-            </a>
+<div class="max-w-lg mx-auto px-4 py-16">
+    {% if review %}
+    <!-- Success state -->
+    <div class="rounded-2xl border border-accent-200 dark:border-accent-800 bg-accent-50 dark:bg-accent-950/40 p-8 text-center">
+        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent-100 dark:bg-accent-900">
+            <svg class="h-6 w-6 text-accent-600 dark:text-accent-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
         </div>
-        {% else %}
-        <!-- Form state -->
-        <div class="card shadow-sm">
-            <div class="card-body">
-                {% include "catalog/book/includes/review_form.html" %}
-            </div>
-        </div>
-        {% endif %}
-
+        <h2 class="mt-4 font-serif text-xl font-bold text-slate-900 dark:text-white">Review submitted!</h2>
+        <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">Your thoughts on <strong>{{ book.title }}</strong> have been added.</p>
+        <a href="{% url 'catalog:book_detail' book.slug %}" class="mt-6 inline-flex items-center gap-2 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 transition">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 15l-6 6m0 0l-6-6m6 6V3"/></svg>
+            Back to book
+        </a>
     </div>
+    {% else %}
+    <!-- Form state (if someone navigates directly to review page) -->
+    <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
+        {% include "catalog/book/includes/review_form.html" %}
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

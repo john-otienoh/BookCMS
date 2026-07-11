@@ -1,80 +1,45 @@
-{% if is_paginated %}
-<nav aria-label="Page navigation" class="mt-4">
-    <ul class="pagination justify-content-center">
-
-        <!-- First page -->
-        {% if page_obj.number > 1 %}
-            <li class="page-item">
-                <a class="page-link" href="?page=1" aria-label="First">
-                    <span aria-hidden="true">&laquo;&laquo;</span>
-                </a>
-            </li>
+{% if page.has_other_pages %}
+<nav class="mt-10 flex justify-center" aria-label="Page navigation">
+    <ul class="inline-flex items-center gap-1">
+        <!-- First -->
+        {% if page.number > 1 %}
+        <li><a href="?page=1" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">&laquo;</a></li>
         {% else %}
-            <li class="page-item disabled">
-                <span class="page-link">&laquo;&laquo;</span>
-            </li>
+        <li><span class="px-3 py-2 rounded-lg text-sm font-medium text-slate-300 dark:text-slate-600">&laquo;</span></li>
         {% endif %}
 
-        <!-- Previous page -->
-        {% if page_obj.has_previous %}
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Previous">
-                    <span aria-hidden="true">&laquo;</span>
-                </a>
-            </li>
+        <!-- Previous -->
+        {% if page.has_previous %}
+        <li><a href="?page={{ page.previous_page_number }}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">‹</a></li>
         {% else %}
-            <li class="page-item disabled">
-                <span class="page-link">&laquo;</span>
-            </li>
+        <li><span class="px-3 py-2 rounded-lg text-sm font-medium text-slate-300 dark:text-slate-600">‹</span></li>
         {% endif %}
 
-        <!-- Page numbers (with ellipsis for long lists) -->
-        {% for num in page_obj.paginator.page_range %}
-            {% if num == page_obj.number %}
-                <li class="page-item active" aria-current="page">
-                    <span class="page-link">{{ num }}</span>
-                </li>
-            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
-                </li>
-            {% elif num == 1 or num == page_obj.paginator.num_pages %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
-                </li>
-            {% elif num == page_obj.number|add:'-3' or num == page_obj.number|add:'3' %}
-                <li class="page-item disabled">
-                    <span class="page-link">…</span>
-                </li>
+        {% for num in page.paginator.page_range %}
+            {% if num == page.number %}
+                <li><span class="px-3 py-2 rounded-lg text-sm font-bold bg-primary-600 text-white">{{ num }}</span></li>
+            {% elif num > page.number|add:'-3' and num < page.number|add:'3' %}
+                <li><a href="?page={{ num }}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">{{ num }}</a></li>
+            {% elif num == 1 or num == page.paginator.num_pages %}
+                <li><a href="?page={{ num }}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">{{ num }}</a></li>
+            {% elif num == page.number|add:'-3' or num == page.number|add:'3' %}
+                <li><span class="px-2 py-2 text-slate-400 dark:text-slate-600">…</span></li>
             {% endif %}
         {% endfor %}
 
-        <!-- Next page -->
-        {% if page_obj.has_next %}
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Next">
-                    <span aria-hidden="true">&raquo;</span>
-                </a>
-            </li>
+        <!-- Next -->
+        {% if page.has_next %}
+        <li><a href="?page={{ page.next_page_number }}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">›</a></li>
         {% else %}
-            <li class="page-item disabled">
-                <span class="page-link">&raquo;</span>
-            </li>
+        <li><span class="px-3 py-2 rounded-lg text-sm font-medium text-slate-300 dark:text-slate-600">›</span></li>
         {% endif %}
 
-        <!-- Last page -->
-        {% if page_obj.number < page_obj.paginator.num_pages %}
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}" aria-label="Last">
-                    <span aria-hidden="true">&raquo;&raquo;</span>
-                </a>
-            </li>
+        <!-- Last -->
+        {% if page.number < page.paginator.num_pages %}
+        <li><a href="?page={{ page.paginator.num_pages }}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">&raquo;</a></li>
         {% else %}
-            <li class="page-item disabled">
-                <span class="page-link">&raquo;&raquo;</span>
-            </li>
+        <li><span class="px-3 py-2 rounded-lg text-sm font-medium text-slate-300 dark:text-slate-600">&raquo;</span></li>
         {% endif %}
-
     </ul>
 </nav>
 {% endif %}

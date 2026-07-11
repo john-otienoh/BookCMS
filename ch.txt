@@ -607,7 +607,7 @@ Tasks:
       >>> from django.core.mail import send_mail
       >>> send_mail('Test', 'Hello from BookShelf', None, ['you@gmail.com'],
       ...           fail_silently=False)
-      
+
 [ ] Wire the real send in book_share (Ref: "Sending emails in views"):
       from django.core.mail import send_mail
       post_url = request.build_absolute_uri(book.get_absolute_url())
@@ -805,5 +805,629 @@ OUT OF SCOPE (deliberately excluded — covered in Chapter 3)
 - Sitemap generation
 - RSS/Atom feed for new books
 - Full-text search across titles/synopses
+
+END OF ROADMAP
+
+BOOKSHELF CMS — CHAPTER 3 IMPLEMENTATION ROADMAP
+Mirrors: "Django 5 by Example", Chapter 3 — Extending Your Blog Application
+Prerequisite: bookshelf_cms_chapter1_roadmap.txt (Phases 0-7) and
+bookshelf_cms_chapter2_roadmap.txt (Phases 8-13) complete — Book model,
+Review model, admin, pagination, BookListView, email sharing all working.
+
+Scope rule: every task below maps 1:1 to a section in Chapter 3. Nothing
+from Chapter 4+ (authentication, registration, custom user profiles,
+password reset, social auth) is included on purpose — see OUT OF SCOPE at
+the end.
+
+============================================================
+0. NEW NAMING FOR THIS CHAPTER
+============================================================
+django-taggit `tags` manager  -> unchanged name (`tags`) on Book — see the
+                                  note in Phase 14 for why this one is NOT
+                                  renamed to "genres"
+post_tags_ids / similar_posts   -> book_tags_ids / similar_books
+templatetags/blog_tags.py        -> templatetags/catalog_tags.py
+total_posts                       -> total_books
+show_latest_posts                  -> show_latest_books
+get_most_commented_posts             -> get_most_reviewed_books
+                                        (Count('comments') -> Count('reviews'))
+blog/post/latest_posts.html            -> catalog/book/latest_books.html
+PostSitemap                              -> BookSitemap
+LatestPostsFeed                           -> LatestBooksFeed
+post_feed                                  -> book_feed
+post_search                                 -> book_search
+blog/post/search.html                        -> catalog/book/search.html
+blog_db (Docker container / DB name/user)      -> bookshelf_db / bookshelf
+mysite_data.json (fixture dump)                  -> bookshelf_data.json
+
+Target end-state directory tree additions (on top of Chapters 1-2's tree):
+
+bookshelf/
+    .env                        (+ DB_NAME, DB_USER, DB_PASSWORD, DB_HOST)
+    bookshelf_data.json         (fixture dump from the SQLite -> Postgres move)
+    requirements.txt            (+ django-taggit==5.0.1, markdown==3.6,
+                                   psycopg==3.1.18)
+    bookshelf/
+        settings.py             (+ SITE_ID, taggit / sites / sitemaps /
+                                   postgres in INSTALLED_APPS, DATABASES
+                                   switched to postgresql)
+        urls.py                  (+ sitemap.xml route)
+    catalog/
+        feeds.py                 (new: LatestBooksFeed)
+        sitemaps.py                (new: BookSitemap)
+        forms.py                    (+ SearchForm)
+        models.py                    (+ tags = TaggableManager())
+        views.py                      (+ tag filtering, similar_books,
+                                          book_search)
+        urls.py                        (+ tag/<slug:tag_slug>/, feed/,
+                                          search/ paths; book_list reverted
+                                          to function-based, see Phase 14)
+        migrations/
+            0004_book_tags.py
+            0005_trigram_ext.py
+        templatetags/
+            __init__.py
+            catalog_tags.py
+        templates/
+            catalog/
+                base.html            (+ {% load catalog_tags %}, sidebar
+                                        widgets, RSS subscribe link)
+                book/
+                    latest_books.html  (new — inclusion-tag template)
+                    search.html         (new)
+                    list.html            (+ tag display/filter, markdown
+                                            filter on synopsis)
+                    detail.html           (+ similar books, markdown filter)
+
+============================================================
+PHASE 14 — TAGGING WITH DJANGO-TAGGIT
+============================================================
+Book ref: "Implementing tagging with django-taggit"
+
+Tasks:
+[ ] `python -m pip install django-taggit==5.0.1`
+[ ] bookshelf/settings.py — add 'taggit' to INSTALLED_APPS, above
+    'catalog.apps.CatalogConfig' (Django apps first, third-party in the
+    middle, local apps last)
+[ ] catalog/models.py:
+      from taggit.managers import TaggableManager
+      class Book(models.Model):
+          # ...
+          tags = TaggableManager()
+    Note: kept as `tags`, not renamed to `genres` — a book catalog
+    legitimately wants free-form tags beyond genre (e.g. "award-winner",
+    "kenyan-author", "book-club-pick"), so the generic name still fits.
+    This mirrors Phase 13's rule: rename only when the concept itself
+    changes, not just the label.
+[ ] `python manage.py makemigrations catalog` -> 0004_book_tags.py
+[ ] `python manage.py migrate` (creates taggit's own tables too)
+[ ] Shell-test (Ref: same section):
+      python manage.py shell
+      >>> from catalog.models import Book
+      >>> book = Book.objects.get(id=1)
+      >>> book.tags.add('sci-fi', 'space-opera', 'classic')
+      >>> book.tags.all()
+      >>> book.tags.remove('classic')
+    (try genre-flavored tags relevant to your own catalog — e.g.
+    'kenyan-fiction', 'east-african-literature' work just as well as the
+    book's music/jazz examples)
+[ ] Confirm /admin/taggit/tag/ lists your tags and /admin/catalog/book/<id>/
+    change/ shows the new Tags field
+[ ] catalog/book/list.html — display tags per book:
+      <p class="tags">Tags: {{ book.tags.all|join:", " }}</p>
+
+[ ] catalog/views.py — filter book_list by an optional tag (Ref: same
+    section):
+      from taggit.models import Tag
+      def book_list(request, tag_slug=None):
+          book_list = Book.published.all()
+          tag = None
+          if tag_slug:
+              tag = get_object_or_404(Tag, slug=tag_slug)
+              book_list = book_list.filter(tags__in=[tag])
+          paginator = Paginator(book_list, 3)
+          page_number = request.GET.get('page', 1)
+          try:
+              books = paginator.page(page_number)
+          except PageNotAnInteger:
+              books = paginator.page(1)
+          except EmptyPage:
+              books = paginator.page(paginator.num_pages)
+          return render(request, 'catalog/book/list.html',
+                        {'books': books, 'tag': tag})
+[ ] catalog/urls.py — this reverts the class-based swap from Phase 11
+    (ListView can't easily take the extra tag_slug argument without more
+    plumbing, so the book itself switches back to the function view here):
+      path('', views.book_list, name='book_list'),
+      # path('', views.BookListView.as_view(), name='book_list'),
+      path(
+          'tag/<slug:tag_slug>/', views.book_list, name='book_list_by_tag'
+      ),
+[ ] catalog/book/list.html — revert the pagination include back to the
+    `books` context var (function-based view, not `page_obj`):
+      {% include "pagination.html" with page=books %}
+    and show the active tag + per-tag links:
+      {% if tag %}
+        <h2>Books tagged with "{{ tag.name }}"</h2>
+      {% endif %}
+      ...
+      <p class="tags">
+        Tags:
+        {% for tag in book.tags.all %}
+          <a href="{% url 'catalog:book_list_by_tag' tag.slug %}">
+            {{ tag.name }}
+          </a>{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+      </p>
+
+Deliverable: taggit installed and migrated, Book.tags manager, tag display
+and tag-filtered list page, book_list reverted to function-based
+Definition of done: /catalog/tag/sci-fi/ shows only books tagged sci-fi;
+clicking a tag on any book takes you there.
+
+============================================================
+PHASE 15 — RETRIEVING BOOKS BY SIMILARITY
+============================================================
+Book ref: "Retrieving posts by similarity"
+
+Tasks:
+[ ] catalog/views.py:
+      from django.db.models import Count
+[ ] Update book_detail (the date+slug version from Chapter 2 Phase 9) to
+    add a similar-books lookup:
+      book_tags_ids = book.tags.values_list('id', flat=True)
+      similar_books = Book.published.filter(
+          tags__in=book_tags_ids
+      ).exclude(id=book.id)
+      similar_books = similar_books.annotate(
+          same_tags=Count('tags')
+      ).order_by('-same_tags', '-publish')[:4]
+    Pass similar_books into the render() context alongside reviews/form.
+[ ] catalog/book/detail.html — add a "Similar books" section:
+      <h2>Similar books</h2>
+      {% for book in similar_books %}
+        <p><a href="{{ book.get_absolute_url }}">{{ book.title }}</a></p>
+      {% empty %}
+        There are no similar books yet.
+      {% endfor %}
+[ ] Via /admin/, tag two or more books with an overlapping genre tag (e.g.
+    both tagged 'sci-fi' and 'dystopian') and confirm they recommend each
+    other
+
+Deliverable: updated book_detail view + detail.html
+Definition of done: opening a tagged book's detail page lists other
+published books ordered by number of shared tags, then by most recent.
+
+============================================================
+PHASE 16 — CUSTOM TEMPLATE TAGS
+============================================================
+Book ref: "Creating custom template tags and filters", "Implementing
+          custom template tags", "Creating a simple template tag",
+          "Creating an inclusion template tag", "Creating a template tag
+          that returns a QuerySet"
+
+Tasks:
+[ ] Create catalog/templatetags/ with an empty __init__.py and a
+    catalog_tags.py file
+[ ] Simple tag (Ref: "Creating a simple template tag"):
+      from django import template
+      from ..models import Book
+      register = template.Library()
+      @register.simple_tag
+      def total_books():
+          return Book.published.count()
+[ ] catalog/base.html — load and use it:
+      {% load catalog_tags %}
+      ...
+      I've catalogued {% total_books %} books so far.
+    (restart the dev server after adding a new templatetags module)
+[ ] Inclusion tag (Ref: "Creating an inclusion template tag"):
+      @register.inclusion_tag('catalog/book/latest_books.html')
+      def show_latest_books(count=5):
+          latest_books = Book.published.order_by('-publish')[:count]
+          return {'latest_books': latest_books}
+[ ] templates/catalog/book/latest_books.html:
+      <ul>
+        {% for book in latest_books %}
+          <li><a href="{{ book.get_absolute_url }}">{{ book.title }}</a></li>
+        {% endfor %}
+      </ul>
+[ ] catalog/base.html:
+      <h3>Latest books</h3>
+      {% show_latest_books 3 %}
+[ ] QuerySet-returning tag (Ref: "Creating a template tag that returns a
+    QuerySet"):
+      from django.db.models import Count
+      @register.simple_tag
+      def get_most_reviewed_books(count=5):
+          return Book.published.annotate(
+              total_reviews=Count('reviews')
+          ).order_by('-total_reviews')[:count]
+[ ] catalog/base.html:
+      <h3>Most reviewed books</h3>
+      {% get_most_reviewed_books as most_reviewed_books %}
+      <ul>
+        {% for book in most_reviewed_books %}
+          <li><a href="{{ book.get_absolute_url }}">{{ book.title }}</a></li>
+        {% endfor %}
+      </ul>
+
+Deliverable: catalog/templatetags/catalog_tags.py with total_books,
+show_latest_books, get_most_reviewed_books; latest_books.html; updated
+base.html sidebar
+Definition of done: every page's sidebar shows a live book count, the
+latest 3 books, and the 3 most-reviewed books, all without touching the
+view functions that render those pages.
+
+============================================================
+PHASE 17 — CUSTOM TEMPLATE FILTER (MARKDOWN)
+============================================================
+Book ref: "Implementing custom template filters", "Creating a template
+          filter to support Markdown syntax"
+
+Tasks:
+[ ] `python -m pip install markdown==3.6`
+[ ] catalog/templatetags/catalog_tags.py:
+      import markdown
+      from django.utils.safestring import mark_safe
+      @register.filter(name='markdown')
+      def markdown_format(text):
+          return mark_safe(markdown.markdown(text))
+[ ] catalog/book/detail.html — replace the synopsis's `linebreaks` filter
+    with `markdown`:
+      {{ book.synopsis|markdown }}
+    (add {% load catalog_tags %} to detail.html if not already loaded)
+[ ] catalog/book/list.html — same swap, keeping the truncation HTML-safe:
+      {{ book.synopsis|markdown|truncatewords_html:30 }}
+[ ] Via /admin/, create or edit a book with a Markdown-formatted synopsis
+    (headings, *emphasis*, a bullet list, a link) and confirm it renders
+    as HTML on both the list and detail pages
+
+Deliverable: markdown filter in catalog_tags.py, updated list.html and
+detail.html
+Definition of done: Markdown in a book's synopsis renders as formatted
+HTML; plain text still displays correctly. Remember: storing Markdown
+(not HTML) in the synopsis field is the safer choice — it limits what can
+be injected, since formatting is only converted to HTML at render time.
+
+============================================================
+PHASE 18 — SITEMAP
+============================================================
+Book ref: "Adding a sitemap to the site"
+
+Tasks:
+[ ] bookshelf/settings.py:
+      SITE_ID = 1
+      INSTALLED_APPS = [
+          'django.contrib.admin',
+          'django.contrib.auth',
+          'django.contrib.contenttypes',
+          'django.contrib.sessions',
+          'django.contrib.messages',
+          'django.contrib.sites',
+          'django.contrib.sitemaps',
+          'django.contrib.staticfiles',
+          'taggit',
+          'catalog.apps.CatalogConfig',
+      ]
+[ ] `python manage.py migrate` (applies sites.0001_initial,
+    sites.0002_alter_domain_unique)
+[ ] catalog/sitemaps.py (new file):
+      from django.contrib.sitemaps import Sitemap
+      from .models import Book
+      class BookSitemap(Sitemap):
+          changefreq = 'weekly'
+          priority = 0.9
+          def items(self):
+              return Book.published.all()
+          def lastmod(self, obj):
+              return obj.updated
+[ ] bookshelf/urls.py:
+      from django.contrib.sitemaps.views import sitemap
+      from catalog.sitemaps import BookSitemap
+      sitemaps = {'books': BookSitemap}
+      urlpatterns = [
+          ...
+          path(
+              'sitemap.xml',
+              sitemap,
+              {'sitemaps': sitemaps},
+              name='django.contrib.sitemaps.views.sitemap'
+          ),
+      ]
+[ ] Open /admin/sites/site/, edit the default Site object, set the domain
+    to localhost:8000 so sitemap URLs resolve locally
+
+Deliverable: catalog/sitemaps.py, updated bookshelf/urls.py, Site domain
+set to localhost:8000
+Definition of done: /sitemap.xml lists every published book's canonical
+URL with a <lastmod> matching its `updated` timestamp.
+
+============================================================
+PHASE 19 — RSS FEED
+============================================================
+Book ref: "Creating feeds for blog posts"
+
+Tasks:
+[ ] catalog/feeds.py (new file):
+      import markdown
+      from django.contrib.syndication.views import Feed
+      from django.template.defaultfilters import truncatewords_html
+      from django.urls import reverse_lazy
+      from .models import Book
+      class LatestBooksFeed(Feed):
+          title = 'BookShelf CMS'
+          link = reverse_lazy('catalog:book_list')
+          description = 'Newly added books.'
+          def items(self):
+              return Book.published.all()[:5]
+          def item_title(self, item):
+              return item.title
+          def item_description(self, item):
+              return truncatewords_html(
+                  markdown.markdown(item.synopsis), 30
+              )
+          def item_pubdate(self, item):
+              return item.publish
+[ ] catalog/urls.py:
+      from .feeds import LatestBooksFeed
+      path('feed/', LatestBooksFeed(), name='book_feed'),
+[ ] catalog/base.html — add a subscribe link:
+      <a href="{% url 'catalog:book_feed' %}">Subscribe to new books</a>
+[ ] Verify /catalog/feed/ renders valid RSS XML with your 5 most recent
+    published books
+[ ] Optional: point an RSS reader (e.g. Fluent Reader) at
+    http://127.0.0.1:8000/catalog/feed/ to confirm it's readable outside
+    the browser
+
+Deliverable: catalog/feeds.py, updated urls.py and base.html
+Definition of done: /catalog/feed/ is valid RSS with correct titles, HTML
+-stripped-and-truncated descriptions, and publish dates.
+
+============================================================
+PHASE 20 — POSTGRESQL SETUP & DATA MIGRATION
+============================================================
+Book ref: "Installing Docker", "Installing PostgreSQL", "Dumping the
+          existing data", "Switching the database in the project",
+          "Loading the data into the new database"
+
+Tasks:
+[ ] Install Docker Desktop / CLI for your OS
+[ ] `docker pull postgres:16.2`
+[ ] Start the container:
+      docker run --name=bookshelf_db -e POSTGRES_DB=bookshelf \
+        -e POSTGRES_USER=bookshelf -e POSTGRES_PASSWORD=xxxxx \
+        -p 5432:5432 -d postgres:16.2
+    (replace xxxxx with your own password)
+[ ] `python -m pip install psycopg==3.1.18`
+[ ] Dump the current SQLite data (Ref: "Dumping the existing data"):
+      python manage.py dumpdata --indent=2 --output=bookshelf_data.json
+    (use `python -Xutf8 manage.py dumpdata ...` if you hit an encoding
+    error)
+[ ] bookshelf/settings.py — switch DATABASES (Ref: "Switching the
+    database in the project"):
+      DATABASES = {
+          'default': {
+              'ENGINE': 'django.db.backends.postgresql',
+              'NAME': config('DB_NAME'),
+              'USER': config('DB_USER'),
+              'PASSWORD': config('DB_PASSWORD'),
+              'HOST': config('DB_HOST'),
+          }
+      }
+    (optional, Ref: same section: add an "OPTIONS": {"pool": True} block
+    to use Django 5.1's connection pooling)
+[ ] .env — add:
+      DB_NAME=bookshelf
+      DB_USER=bookshelf
+      DB_PASSWORD=xxxxx
+      DB_HOST=localhost
+[ ] `python manage.py migrate` against the new, empty Postgres database —
+    confirm every app's migrations apply cleanly (admin, auth, catalog,
+    contenttypes, sessions, sites, taggit)
+[ ] Load the data back in (Ref: "Loading the data into the new
+    database"):
+      
+[ ] `python manage.py runserver`, confirm /admin/catalog/book/ shows all
+    your original books
+
+Deliverable: running Postgres container, psycopg installed,
+bookshelf_data.json fixture, updated settings.py + .env, data reloaded
+Definition of done: the project runs against Postgres with all
+previously-created books, reviews, and tags intact.
+
+============================================================
+PHASE 21 — FULL-TEXT SEARCH ENGINE
+python manage.py loaddata bookshelf_data.json============================================================
+Book ref: "Adding full-text search to the blog", "Simple search lookups",
+          "Searching against multiple fields", "Building a search view",
+          "Stemming and ranking results", "Stemming and removing stop
+          words in different languages", "Weighting queries", "Searching
+          with trigram similarity"
+
+Tasks:
+[ ] bookshelf/settings.py — add 'django.contrib.postgres' to
+    INSTALLED_APPS
+[ ] Shell-test simple single-field search (Ref: "Simple search lookups"):
+      python manage.py shell
+      >>> from catalog.models import Book
+      >>> Book.objects.filter(title__search='dune')
+[ ] Shell-test multi-field search (Ref: "Searching against multiple
+    fields"):
+      >>> from django.contrib.postgres.search import SearchVector
+      >>> Book.objects.annotate(
+      ...     search=SearchVector('title', 'synopsis'),
+      ... ).filter(search='dune')
+[ ] catalog/forms.py:
+      class SearchForm(forms.Form):
+          query = forms.CharField()
+[ ] catalog/views.py — book_search view (Ref: "Building a search view"):
+      from django.contrib.postgres.search import SearchVector
+      from .forms import SearchForm
+      def book_search(request):
+          form = SearchForm()
+          query = None
+          results = []
+          if 'query' in request.GET:
+              form = SearchForm(request.GET)
+              if form.is_valid():
+                  query = form.cleaned_data['query']
+                  results = (
+                      Book.published.annotate(
+                          search=SearchVector('title', 'synopsis'),
+                      )
+                      .filter(search=query)
+                  )
+          return render(request, 'catalog/book/search.html',
+                        {'form': form, 'query': query, 'results': results})
+[ ] templates/catalog/book/search.html (mirrors search.html):
+      {% extends "catalog/base.html" %}
+      {% load catalog_tags %}
+      {% block title %}Search{% endblock %}
+      {% block content %}
+        {% if query %}
+          <h1>Books matching "{{ query }}"</h1>
+          <h3>
+            {% with results.count as total_results %}
+              Found {{ total_results }} result{{ total_results|pluralize }}
+            {% endwith %}
+          </h3>
+          {% for book in results %}
+            <h4><a href="{{ book.get_absolute_url }}">{{ book.title }}</a></h4>
+            {{ book.synopsis|markdown|truncatewords_html:12 }}
+          {% empty %}
+            <p>There are no results for your query.</p>
+          {% endfor %}
+          <p><a href="{% url 'catalog:book_search' %}">Search again</a></p>
+        {% else %}
+          <h1>Search for books</h1>
+          <form method="get">
+            {{ form.as_p }}
+            <input type="submit" value="Search">
+          </form>
+        {% endif %}
+      {% endblock %}
+[ ] catalog/urls.py: path('search/', views.book_search, name='book_search')
+[ ] Add stemming + ranking (Ref: "Stemming and ranking results"):
+      from django.contrib.postgres.search import (
+          SearchVector, SearchQuery, SearchRank
+      )
+      search_vector = SearchVector('title', 'synopsis')
+      search_query = SearchQuery(query)
+      results = (
+          Book.published.annotate(
+              search=search_vector,
+              rank=SearchRank(search_vector, search_query)
+          )
+          .filter(search=search_query)
+          .order_by('-rank')
+      )
+[ ] Optional — non-English stemming (Ref: "Stemming and removing stop
+    words in different languages"): pass config='spanish' (or another
+    language) to SearchVector and SearchQuery if your catalog includes
+    non-English titles/synopses
+[ ] Add weighting so title matches outrank synopsis matches (Ref:
+    "Weighting queries"):
+      search_vector = (
+          SearchVector('title', weight='A')
+          + SearchVector('synopsis', weight='B')
+      )
+      search_query = SearchQuery(query)
+      results = (
+          Book.published.annotate(
+              search=search_vector,
+              rank=SearchRank(search_vector, search_query)
+          )
+          .filter(rank__gte=0.3)
+          .order_by('-rank')
+      )
+[ ] Trigram similarity (Ref: "Searching with trigram similarity"):
+      python manage.py makemigrations --name=trigram_ext --empty catalog
+    Edit the generated catalog/migrations/0005_trigram_ext.py:
+      from django.contrib.postgres.operations import TrigramExtension
+      from django.db import migrations
+      class Migration(migrations.Migration):
+          dependencies = [('catalog', '0004_book_tags')]
+          operations = [TrigramExtension()]
+      python manage.py migrate catalog
+[ ] Update book_search to use TrigramSimilarity for typo-tolerant title
+    search:
+      from django.contrib.postgres.search import TrigramSimilarity
+      results = (
+          Book.published.annotate(
+              similarity=TrigramSimilarity('title', query),
+          )
+          .filter(similarity__gt=0.1)
+          .order_by('-similarity')
+      )
+
+Deliverable: SearchForm, book_search view (progressively upgraded through
+plain search -> vector -> ranked -> weighted -> trigram), search.html,
+0005_trigram_ext.py migration
+Definition of done: /catalog/search/?query=dune returns ranked results by
+relevance; a misspelled query (e.g. "dnue") still returns "Dune" once
+trigram similarity is wired in.
+
+------------------------------------------------------------
+PHASE 22 — OPTIONAL / STRETCH: AI-assisted extension
+------------------------------------------------------------
+Book ref: "Expanding your project using AI"
+
+Task:
+[ ] The book's closing challenge is to use an LLM to extend the sitemap
+    so tag-filtered list pages are included too (improves SEO beyond just
+    individual post pages). Adapted for BookShelf CMS: extend BookSitemap
+    (or add a second Sitemap subclass) so that tag pages like
+    /catalog/tag/sci-fi/ are also listed in sitemap.xml, alongside the
+    per-book URLs from Phase 18.
+
+Deliverable: an extended (or additional) Sitemap class covering tag pages
+Definition of done: /sitemap.xml includes both book detail URLs and
+tag-filtered list URLs.
+
+============================================================
+MANAGEMENT COMMAND CHEAT SHEET — CHAPTER 3 ADDITIONS
+============================================================
+python -m pip install django-taggit==5.0.1
+python -m pip install markdown==3.6
+python -m pip install psycopg==3.1.18
+python manage.py makemigrations catalog        # 0004_book_tags
+python manage.py migrate
+docker pull postgres:16.2
+docker run --name=bookshelf_db -e POSTGRES_DB=bookshelf \
+  -e POSTGRES_USER=bookshelf -e POSTGRES_PASSWORD=xxxxx \
+  -p 5432:5432 -d postgres:16.2
+python manage.py dumpdata --indent=2 --output=bookshelf_data.json
+python manage.py loaddata bookshelf_data.json
+python manage.py makemigrations --name=trigram_ext --empty catalog
+python manage.py migrate catalog
+
+============================================================
+DOMAIN MAPPING TABLE — CHAPTER 3 ADDITIONS
+============================================================
+Post.tags (TaggableManager)         -> Book.tags (unchanged)
+post_tags_ids                        -> book_tags_ids
+similar_posts                         -> similar_books
+blog_tags.py                           -> catalog_tags.py
+total_posts                             -> total_books
+show_latest_posts / latest_posts.html    -> show_latest_books / latest_books.html
+get_most_commented_posts                  -> get_most_reviewed_books
+markdown filter (post.body)                -> markdown filter (book.synopsis)
+PostSitemap                                 -> BookSitemap
+LatestPostsFeed / post_feed                  -> LatestBooksFeed / book_feed
+SearchForm.query                              -> unchanged
+post_search / blog:post_search                 -> book_search / catalog:book_search
+blog/post/search.html                            -> catalog/book/search.html
+blog_db / DB user "blog"                          -> bookshelf_db / DB user "bookshelf"
+mysite_data.json                                   -> bookshelf_data.json
+0005_trigram_ext.py deps on blog.0004_post_tags      -> deps on catalog.0004_book_tags
+
+============================================================
+OUT OF SCOPE (deliberately excluded — covered in Chapter 4)
+============================================================
+- User registration and login/logout views
+- Django's authentication framework (auth views, password reset)
+- Custom user profiles
+- Social authentication (Google/GitHub login, etc.)
 
 END OF ROADMAP

@@ -1,64 +1,66 @@
 {% extends "catalog/base.html" %}
-
 {% block title %}Share "{{ book.title }}" - BookShelf CMS{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
-
-        {% if sent %}
-        <!-- Success message -->
-        <div class="alert alert-success shadow-sm" role="alert">
-            <h4 class="alert-heading"><i class="bi bi-check-circle-fill"></i> Email sent!</h4>
-            <p>"<strong>{{ book.title }}</strong>" was successfully shared to
-            <strong>{{ form.cleaned_data.to }}</strong>.</p>
-            <hr>
-            <p class="mb-0">
-                <a href="{% url 'catalog:book_detail' book.slug %}" class="btn btn-outline-success btn-sm">
-                    &larr; Back to the book
-                </a>
-            </p>
+<div class="max-w-lg mx-auto px-4 py-16">
+    {% if sent %}
+    <!-- Success state -->
+    <div class="rounded-2xl border border-accent-200 dark:border-accent-800 bg-accent-50 dark:bg-accent-950/40 p-8 text-center">
+        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent-100 dark:bg-accent-900">
+            <svg class="h-6 w-6 text-accent-600 dark:text-accent-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
         </div>
-        {% else %}
-        <!-- Share form -->
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h1 class="card-title mb-3">
-                    <i class="bi bi-envelope-fill text-primary"></i> Share "{{ book.title }}"
-                </h1>
-                <p class="text-muted">Recommend this book to a friend via email.</p>
-
-                <form method="post" novalidate>
-                    {% csrf_token %}
-
-                    {% for field in form %}
-                    <div class="mb-3">
-                        <label for="{{ field.id_for_label }}" class="form-label">
-                            {{ field.label }}
-                        </label>
-                        {{ field }}
-                        {% if field.errors %}
-                            <div class="text-danger small mt-1">{{ field.errors|striptags }}</div>
-                        {% endif %}
-                        {% if field.help_text %}
-                            <div class="form-text">{{ field.help_text }}</div>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <a href="{% url 'catalog:book_detail' book.slug %}" class="btn btn-outline-secondary me-md-2">
-                            Cancel
-                        </a>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-send-fill"></i> Send Email
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        {% endif %}
-
+        <h2 class="mt-4 font-serif text-xl font-bold text-slate-900 dark:text-white">Email sent!</h2>
+        <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">"<strong>{{ book.title }}</strong>" was shared to <strong>{{ form.cleaned_data.to }}</strong>.</p>
+        <a href="{% url 'catalog:book_detail' book.slug %}" class="mt-6 inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-700 px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">Back to book</a>
     </div>
+    {% else %}
+    <!-- Share form -->
+    <div class="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 shadow-sm">
+        <div class="flex items-center gap-3 mb-6">
+            <svg class="w-6 h-6 text-primary-600 dark:text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            <h1 class="font-serif text-2xl font-bold text-slate-900 dark:text-white">Share "{{ book.title }}"</h1>
+        </div>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Recommend this book to a friend via email.</p>
+        <form method="post" novalidate class="space-y-5">
+            {% csrf_token %}
+            {% for field in form %}
+                <div>
+                    <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{{ field.label }}</label>
+                    {% if field.field.widget.input_type == 'textarea' %}
+                        <textarea
+                            name="{{ field.name }}"
+                            id="{{ field.id_for_label }}"
+                            class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
+                            placeholder="Enter {{ field.label|lower }}"
+                            rows="4"
+                        >{{ field.value|default_if_none:'' }}</textarea>
+                    {% else %}
+                        <input
+                            type="{{ field.field.widget.input_type }}"
+                            name="{{ field.name }}"
+                            id="{{ field.id_for_label }}"
+                            class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
+                            placeholder="Enter {{ field.label|lower }}"
+                            value="{{ field.value|default_if_none:'' }}"
+                        >
+                    {% endif %}
+                    {% if field.errors %}
+                        <p class="mt-1 text-sm text-red-500 dark:text-red-400">{{ field.errors|striptags }}</p>
+                    {% endif %}
+                    {% if field.help_text %}
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ field.help_text }}</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+            <div class="flex justify-end gap-3 pt-2">
+                <a href="{% url 'catalog:book_detail' book.slug %}" class="inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-700 px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">Cancel</a>
+                <button type="submit" class="inline-flex items-center gap-2 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 transition">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                    Send Email
+                </button>
+            </div>
+        </form>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

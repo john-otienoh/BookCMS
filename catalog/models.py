@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from django.conf import settings
+from taggit.managers import TaggableManager
 from django.urls import reverse
 
 class PublishedManager(models.Manager):
@@ -17,6 +18,7 @@ class Book(models.Model):
     title = models.CharField(max_length=250)
     slug = models.SlugField(max_length=250, unique=True)
     synopsis = models.TextField()
+    tags = TaggableManager()
     added_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,related_name='books_added'
     )
@@ -38,9 +40,7 @@ class Book(models.Model):
     def get_absolute_url(self):
         return reverse(
             'catalog:book_detail', 
-            args=[
-                self.slug,
-            ] 
+            kwargs={'book': self.slug}
         )
     
     class Meta:

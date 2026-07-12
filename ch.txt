@@ -1431,3 +1431,367 @@ OUT OF SCOPE (deliberately excluded — covered in Chapter 4)
 - Social authentication (Google/GitHub login, etc.)
 
 END OF ROADMAP
+
+BOOKSHELF CMS — CHAPTER 4 IMPLEMENTATION ROADMAP
+Mirrors: "Django 5 by Example", Chapter 4 — Building a Social Website
+Prerequisite: Chapters 1-3 roadmaps complete (bookshelf project, catalog
+app: Book, Review, tags, search, sitemap, feed all working).
+
+FORMAT NOTE FOR THIS FILE: no implementation code is included below — no
+class bodies, no field declarations written as code, no HTML/view/form
+snippets. Every task describes WHAT to build (names, field types,
+behavior, which template goes where) so you can write the actual Django
+code yourself. Shell/manage.py commands are still spelled out, since
+running a command isn't the part you're practicing.
+
+PROJECT-STRUCTURE NOTE: the book restarts entirely here — new venv, new
+project called "bookmarks" — because it's pivoting to a separate
+image-sharing project for the rest of the book. This roadmap instead
+folds Chapter 4's authentication system into your existing bookshelf
+project as a new app, so your catalog work and reader-account work live
+together. Say the word if you'd rather spin it out as a second project
+the way the book does.
+
+Scope rule: every task below maps 1:1 to a section in Chapter 4. Nothing
+from Chapter 5+ (messages framework, email-based auth, Google social
+auth, HTTPS via django-extensions, auto-creating profiles via signals) is
+included on purpose — see OUT OF SCOPE at the end.
+
+============================================================
+0. NEW NAMING FOR THIS CHAPTER
+============================================================
+account app                    -> accounts app
+Profile model                   -> ReaderProfile model (deliberate rename —
+                                    same kind of domain-fit choice as
+                                    Comment -> Review in Chapter 2; this is
+                                    the profile of a reader of your catalog)
+ProfileEditForm                  -> ReaderProfileEditForm
+photo upload path
+  users/%Y/%m/%d/                 -> readers/%Y/%m/%d/
+Everything else (LoginForm, UserRegistrationForm, UserEditForm, the view
+names login/logout/register/edit/dashboard, all the built-in auth view
+names) is generic account-system vocabulary with no book-specific
+concept to shift, so it's kept exactly as in the book.
+
+Target end-state directory tree additions:
+
+bookshelf/
+    bookshelf/
+        settings.py          (+ accounts app ordered before django.contrib.admin,
+                                LOGIN_REDIRECT_URL / LOGIN_URL / LOGOUT_URL,
+                                MEDIA_URL / MEDIA_ROOT, EMAIL_BACKEND for
+                                local testing)
+        urls.py                (+ accounts/ include, + static() media serving
+                                  under DEBUG)
+    accounts/
+        admin.py                (ReaderProfileAdmin)
+        forms.py                 (LoginForm, UserRegistrationForm,
+                                   UserEditForm, ReaderProfileEditForm)
+        models.py                 (ReaderProfile)
+        views.py                  (user_login [temporary], dashboard,
+                                    register, edit)
+        urls.py                    (built up in stages across Phases 24-28,
+                                    ending as a single include of
+                                    django.contrib.auth.urls plus your own
+                                    dashboard/register/edit paths)
+        migrations/
+            0001_initial.py          (ReaderProfile)
+        templates/
+            base.html
+            registration/
+                login.html
+                logged_out.html
+                password_change_form.html
+                password_change_done.html
+                password_reset_form.html
+                password_reset_email.html
+                password_reset_done.html
+                password_reset_confirm.html
+                password_reset_complete.html
+            accounts/
+                dashboard.html
+                register.html
+                register_done.html
+                edit.html
+
+============================================================
+PHASE 23 — READER ACCOUNTS APP BOOTSTRAP
+============================================================
+Book ref: "Creating a social website project", "Starting the social
+          website project"
+
+Tasks:
+[ ] Create a new app named `accounts` inside the bookshelf project
+[ ] Register it in INSTALLED_APPS — the book specifically puts its
+    account app FIRST in the list, ahead of django.contrib.admin, so that
+    Django's template loader finds your custom auth templates (login,
+    logged_out, etc.) before it finds admin's built-in versions of the
+    same template names. Do the same here: put accounts ahead of
+    django.contrib.admin.
+[ ] Run the standard migrate to confirm the project still starts cleanly
+    with the new (currently empty) app installed
+
+Deliverable: accounts app scaffold, correctly ordered INSTALLED_APPS
+Definition of done: manage.py check passes; accounts appears before
+django.contrib.admin in INSTALLED_APPS.
+
+============================================================
+PHASE 24 — CUSTOM LOGIN VIEW (learning exercise, replaced in Phase 25)
+============================================================
+Book ref: "Using the Django authentication framework", "Creating a login
+          view"
+
+Tasks:
+[ ] Build a LoginForm with two fields: a username field and a password
+    field rendered with a password-style widget (so the browser masks
+    input)
+[ ] Build a user_login view with this exact branching behavior:
+      - GET: show a blank LoginForm
+      - POST: validate the form; call Django's authenticate() with the
+        submitted credentials
+      - if authenticate() returns no user: show one distinct response
+        for "invalid login"
+      - if it returns a user but is_active is False: a different
+        response for "disabled account"
+      - if it returns an active user: call login() to start the session,
+        then a third distinct response for "authenticated successfully"
+    (the point of building three distinct outcomes, per the book, is to
+    see authenticate() and login() as two separate steps before you hand
+    this job to Django's built-in view in the next phase)
+[ ] Wire a URL for it, and create a minimal base template plus a login
+    template that renders the form
+[ ] Create a superuser and at least one ordinary reader account via
+    /admin/ to have something to log in with
+
+Deliverable: a working, disposable login view exercising
+authenticate()/login() directly
+Definition of done: you can trigger all three outcomes (bad credentials /
+inactive account / success) by controlling what you submit and which
+test account's is_active flag you toggle in /admin/.
+
+============================================================
+PHASE 25 — BUILT-IN LOGIN/LOGOUT VIEWS + DASHBOARD
+============================================================
+Book ref: "Using Django's built-in authentication views", "Login and
+          logout views"
+
+Tasks:
+[ ] Retire the Phase 24 URL and swap in Django's built-in login view,
+    plus a URL for the built-in logout view
+[ ] Create the two templates Django's auth views expect by default,
+    under a `registration/` template directory: one for the login page
+    and one for the "logged out" confirmation page
+      - the login template needs: an errors branch (Django's own
+        AuthenticationForm raises a validation error on bad credentials,
+        so check for form errors rather than writing your own check), a
+        hidden "next" field so post-login redirects work, and the form
+        itself
+[ ] Build a dashboard view, protected with the login-required decorator,
+    that renders a simple welcome page; wire its URL
+[ ] In settings, point Django at your URL names for: where to send users
+    after a successful login with no "next" param, where to send
+    unauthenticated users who hit a protected view, and where "logout"
+    points
+[ ] Update the base template to branch on whether the current user is
+    authenticated: show a nav menu + a greeting (falling back to
+    username if no first name is set) + a logout control that POSTs
+    (Django's logout view requires POST) when logged in; show a plain
+    login link otherwise
+
+Deliverable: full login/logout/dashboard loop using Django's built-in
+views instead of your Phase 24 exercise
+Definition of done: logging in lands you on the dashboard; logging out
+lands you on the logged-out page; the header visibly changes based on
+auth state; hitting the dashboard while logged out redirects you to log
+in first and then back to the dashboard afterward.
+
+============================================================
+PHASE 26 — CHANGE PASSWORD VIEWS
+============================================================
+Book ref: "Change password views"
+
+Tasks:
+[ ] Add URLs for Django's built-in change-password view and its
+    "done" confirmation view
+[ ] Create the two matching templates under `registration/`: the change
+    form, and a short success message page
+
+Deliverable: working change-password flow
+Definition of done: a logged-in reader can change their password and see
+a confirmation page, then log out and back in with the new password.
+
+============================================================
+PHASE 27 — RESET PASSWORD VIEWS + CONSOLIDATING AUTH URLS
+============================================================
+Book ref: "Reset password views"
+
+Tasks:
+[ ] Add URLs for the four built-in reset-password views: the request
+    form, the "email sent" confirmation, the confirm/set-new-password
+    view (this one takes two URL parameters carried in the reset link),
+    and the final "complete" success page
+[ ] Create the five matching templates under `registration/`:
+      - the reset-request form
+      - the reset email itself — note this one is NOT extended from your
+        base template, it's plain text meant to be emailed, and needs to
+        include the generated reset link and the user's username
+      - the "email sent" confirmation page
+      - the confirm page — this one branches on whether the link is
+        still valid; only show the new-password form if it is
+      - the final success page
+[ ] Add a "forgotten your password?" link to the login template
+[ ] For local testing without a real mailbox, point EMAIL_BACKEND at
+    Django's console backend so reset emails print to your terminal
+    (or reuse the Gmail SMTP config you already set up in the Chapter 2
+    roadmap if you'd rather see a real email)
+[ ] Consolidation step (mirrors the book exactly): once every piece above
+    works individually, retire every manual URL pattern you wrote across
+    Phases 25-27 for login/logout/password-change/password-reset, and
+    replace all of them with a single include of Django's built-in auth
+    URL module. Confirm every URL name you were relying on (login,
+    logout, password_change, password_change_done, password_reset,
+    password_reset_done, password_reset_confirm,
+    password_reset_complete) still resolves correctly even though you no
+    longer declare any of those paths yourself.
+
+Deliverable: full password-reset flow; auth URLs consolidated down to one
+include line plus your own dashboard/register/edit paths
+Definition of done: you can request a reset email, follow the link,
+successfully set a new password, and log in with it — and your urls.py
+no longer has individual path() entries for any of the built-in auth
+views.
+
+============================================================
+PHASE 28 — READER REGISTRATION
+============================================================
+Book ref: "User registration and user profiles", "User registration"
+
+Tasks:
+[ ] Build a UserRegistrationForm as a model form built against the
+    *dynamically retrieved* user model (not a hardcoded import of the
+    User model — this keeps things swappable if you ever move to a
+    custom user model later), including username, first name, and email,
+    plus two extra plain (non-model) fields for a password and a
+    repeated-password confirmation
+[ ] Add a field-level validator on the repeated-password field that
+    raises a validation error if it doesn't match the first password
+    field
+[ ] Build a register view: on a valid POST, build the user object
+    without committing it to the database yet, set the password properly
+    using the model's password-hashing method (never assign the raw
+    password to the password field directly), then save; render a
+    distinct "registration done" template afterward
+[ ] Wire the URL, and build the two templates: the registration form
+    page and the "welcome, you're registered" page
+[ ] Add a "register here" link to the login template
+
+Deliverable: working self-service registration flow
+Definition of done: a new visitor can create an account (with a
+correctly-rejected mismatched-password case along the way), and lands on
+a "you're registered, now log in" page.
+
+============================================================
+PHASE 29 — READER PROFILE MODEL & MEDIA UPLOADS
+============================================================
+Book ref: "Extending the user model", "Installing Pillow and serving
+          media files", "Creating migrations for the profile model"
+
+Tasks:
+[ ] Add a ReaderProfile model with: a one-to-one link to the user model
+    (with cascading delete, so a profile disappears if its user is
+    deleted), an optional date-of-birth date field, and an optional photo
+    image field uploading into a dated `readers/` subdirectory (mirrors
+    the book's `users/%Y/%m/%d/` path, renamed to fit the domain)
+[ ] Install Pillow (Django's ImageField needs it to validate/process
+    images)
+[ ] Add the media URL prefix and the local media root path to settings,
+    and wire the project urls.py to serve media files locally whenever
+    DEBUG is on
+[ ] Generate and apply the migration for ReaderProfile
+[ ] Register ReaderProfile in the admin with a sensible list display
+    (user, date of birth, photo) and a raw-ID widget for the user field
+    (same reasoning as Book.added_by back in Chapter 1 — nicer than a
+    giant dropdown once you have many users)
+[ ] Update the register view so that a matching ReaderProfile row gets
+    created automatically whenever a new user registers through the
+    form. Note, same as the book: accounts created directly through
+    /admin/ won't get this for free — that gap gets closed with Django
+    signals in a later chapter, not this one.
+
+Deliverable: ReaderProfile model + migration, admin registration, media
+serving configured, auto-created on self-registration
+Definition of done: registering a new reader through your Phase 28 form
+creates both a User row and a matching ReaderProfile row; you can attach
+a photo to a profile through /admin/ and retrieve it at the configured
+media URL.
+
+============================================================
+PHASE 30 — PROFILE EDITING
+============================================================
+Book ref: continuation of "Extending the user model" (the edit view,
+          templates, and dashboard links)
+
+Tasks:
+[ ] Build a UserEditForm covering first name, last name, and email on
+    the built-in user model
+[ ] Build a ReaderProfileEditForm covering date of birth and photo on
+    your ReaderProfile model
+[ ] Build a login-required edit view that instantiates both forms bound
+    to the current user and their profile, validates both together on
+    POST, and saves both only if both are valid
+[ ] Build the edit template: a single form (remember it needs
+    multipart encoding, since one of the two sub-forms includes a file
+    upload) rendering both sub-forms with one submit button
+[ ] Wire the URL, and add two links from the dashboard: one to this edit
+    page, one to the change-password page
+
+Deliverable: working profile-edit flow
+Definition of done: a logged-in reader can update their name/email and
+upload or replace their profile photo in a single submission; the
+dashboard links to both this page and password-change.
+
+------------------------------------------------------------
+PHASE 31 — CONCEPTUAL ONLY: custom user model (no implementation)
+------------------------------------------------------------
+Book ref: "Using a custom user model"
+
+This section of the book is a pointer, not something it actually builds:
+Django lets you substitute the entire user model (by subclassing
+AbstractUser) instead of bolting a profile onto the default one, trading
+more flexibility for rougher integration with third-party packages that
+assume the stock auth User. Nothing to build here — just worth knowing
+this door exists if ReaderProfile ever starts to feel like it's straining
+against the built-in User model's fixed fields.
+
+============================================================
+MANAGEMENT COMMAND CHEAT SHEET — CHAPTER 4 ADDITIONS
+============================================================
+python manage.py startapp accounts
+python -m pip install Pillow==11.0.0
+python manage.py makemigrations
+python manage.py migrate
+python manage.py createsuperuser        # if you don't already have one
+
+============================================================
+DOMAIN MAPPING TABLE — CHAPTER 4 ADDITIONS
+============================================================
+account app                          -> accounts app
+Profile model                         -> ReaderProfile model
+ProfileEditForm                        -> ReaderProfileEditForm
+users/%Y/%m/%d/ upload path              -> readers/%Y/%m/%d/
+bookmarks (book's fresh restart project)  -> folded into the existing
+                                              bookshelf project instead
+                                              (flag if you'd rather split
+                                              it out)
+
+============================================================
+OUT OF SCOPE (deliberately excluded — covered in Chapter 5)
+============================================================
+- Django's messages framework for user feedback
+- Authenticating with email address instead of username
+- Social authentication (Google login)
+- Serving the dev server over HTTPS via django-extensions
+- Auto-creating ReaderProfile rows via signals (closes the /admin/-created-
+  user gap noted in Phase 29)
+
+END OF ROADMAP

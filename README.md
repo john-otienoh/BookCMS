@@ -1,11 +1,12 @@
 # BookShelf CMS
 
-A full‑featured book catalogue application built with Django, following the **"Django 5 by Example"** book (Chapters 1–3).  
-It replaces the blog example with a dedicated **BookShelf CMS** – manage books, tag them, accept reader reviews, share via email, and benefit from powerful PostgreSQL full‑text search.
+A full‑featured book catalogue application built with Django, following the **"Django 5 by Example"** book (Chapters 1–4).  
+It replaces the blog example with a dedicated **BookShelf CMS** – manage books, tag them, accept reader reviews, share via email, and benefit from powerful PostgreSQL full‑text search.  
+With Chapter 4, the platform now includes a **complete user account system** with email verification, profile management, and media file uploads.
 
 ---
 
-## Features (Chapters 1‑3)
+## Features (Chapters 1‑4)
 
 ### Chapter 1 – Core Application
 - **Book model** with title, slug, synopsis, publish date, status (Draft/Published) and a many‑to‑one relationship to the cataloger (`added_by`).
@@ -37,6 +38,21 @@ It replaces the blog example with a dedicated **BookShelf CMS** – manage books
   - Stemming and stop‑word removal.
   - Trigram similarity fallback for typo‑tolerant title search.
 - **Database migration** from SQLite to PostgreSQL (Docker container setup + data dump/load).
+
+### Chapter 4 – User Accounts & Profiles
+- **User registration** with email verification:
+  - Sign‑up form (username, email, password).
+  - Email containing a **6‑digit OTP** and a one‑click **magic link**.
+  - Account remains inactive until verified.
+- **Email‑based login**: authenticate with email and password instead of username.
+- **Logout** functionality.
+- **Password change** and **password reset** (via email) using Django’s built‑in views.
+- **User profile** with editable fields:
+  - First name, last name, bio, phone number.
+  - **Avatar** (profile picture) – file uploads stored in `media/avatars/`.
+- **Media file handling**: configuration for user‑uploaded files.
+- **Custom authentication backend** (`accounts.backends.EmailBackend`) that allows login with email.
+- **Account signal**: a `user_verified` signal ensures a `Profile` object is created automatically when the email is verified.
 
 ---
 
@@ -75,6 +91,7 @@ It replaces the blog example with a dedicated **BookShelf CMS** – manage books
    django-taggit==5.0.1
    markdown==3.6
    psycopg[binary]==3.1.18
+   Pillow   # for image uploads (avatar)
    ```
 
 4. **Environment variables** – create a `.env` file in the project root (next to `manage.py`):
@@ -85,13 +102,13 @@ It replaces the blog example with a dedicated **BookShelf CMS** – manage books
    DB_PASSWORD=your_password
    DB_HOST=localhost
 
-   # Email settings (optional – use console backend in dev)
+   # Email settings (required for verification emails & password reset)
    EMAIL_HOST_USER=your_email@gmail.com
    EMAIL_HOST_PASSWORD=your_app_password
    DEFAULT_FROM_EMAIL=BookShelf CMS <your_email@gmail.com>
    ```
 
-   For local development without SMTP, the project will automatically use the **console email backend** if the email variables are missing.
+   For local development without SMTP, the project will automatically use the **console email backend** if the email variables are missing. However, to test the full verification flow, provide real SMTP credentials or use a service like Mailtrap.
 
 5. **Database configuration**
    - By default, `settings.py` uses **PostgreSQL** and reads from the `.env` file.
@@ -127,6 +144,24 @@ It replaces the blog example with a dedicated **BookShelf CMS** – manage books
    python manage.py loaddata bookshelf_data.json
    ```
 
+9. **Media files (avatars)**
+   Ensure your `settings.py` contains the following media configuration (already set up in the project):
+   ```python
+   MEDIA_URL = '/media/'
+   MEDIA_ROOT = BASE_DIR / 'media'
+   ```
+   During development, add this to your project’s `urls.py`:
+   ```python
+   from django.conf import settings
+   from django.conf.urls.static import static
+
+   urlpatterns = [
+       # ... my URL patterns
+   ]
+   if settings.DEBUG:
+       urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+   ```
+
 ---
 
 ## Running the Development Server
@@ -134,7 +169,8 @@ It replaces the blog example with a dedicated **BookShelf CMS** – manage books
 ```bash
 python manage.py runserver
 ```
-Visit **http://127.0.0.1:8000/catalog/** to browse published books.
+Visit **http://127.0.0.1:8000/catalog/** to browse published books.  
+User account pages are under **http://127.0.0.1:8000/accounts/**.
 
 ---
 
@@ -146,22 +182,39 @@ The admin offers:
 - **Reviews** with moderation (active/inactive).
 - **Tags** (via django‑taggit).
 - **Sites** (required for sitemap generation – set domain to `localhost:8000`).
+- **Email OTPs** – admin can inspect verification tokens (read‑only).
+- **Profiles** – manage user bio, phone, avatar.
 
 ---
 
 ## URL Patterns Overview
 
-| URL                                 | Purpose                                     |
-|-------------------------------------|---------------------------------------------|
-| `/catalog/`                         | Paginated list of published books           |
-| `/catalog/tag/<slug:tag_slug>/`     | Books filtered by tag                       |
-| `/catalog/<slug:book>/` | Book detail (SEO‑friendly)          |
-| `/catalog/<int:id>/share/`          | Share a book via email                      |
-| `/catalog/<int:id>/review/`         | Submit a review (POST only)                 |
-| `/catalog/search/`                  | Full‑text search                            |
-| `/catalog/feed/`                    | RSS feed of latest books                    |
-| `/sitemap.xml`                      | Sitemap index                               |
-| `/admin/`                           | Django admin                                |
+| URL                                      | Purpose                                     |
+|------------------------------------------|---------------------------------------------|
+| `/catalog/`                              | Paginated list of published books           |
+| `/catalog/tag/<slug:tag_slug>/`          | Books filtered by tag                       |
+| `/catalog/<slug:book>/`                  | Book detail (SEO‑friendly)                  |
+| `/catalog/<int:id>/share/`               | Share a book via email                      |
+| `/catalog/<int:id>/review/`              | Submit a review (POST only)                 |
+| `/catalog/search/`                       | Full‑text search                            |
+| `/catalog/feed/`                         | RSS feed of latest books                    |
+| `/sitemap.xml`                           | Sitemap index                               |
+| `/admin/`                                | Django admin                                |
+| **Accounts**                             |                                             |
+| `/accounts/register/`                    | Create a new account                        |
+| `/accounts/register/done/`               | After sign‑up – prompt to check email       |
+| `/accounts/register/confirm/`            | Enter OTP to verify email                   |
+| `/accounts/register/confirm/<uidb64>/<token>/` | Magic‑link verification               |
+| `/accounts/register/resend/`             | Resend verification code                    |
+| `/accounts/login/`                       | Email‑based login                           |
+| `/accounts/logout/`                      | Sign out                                    |
+| `/accounts/profile/`                     | View your profile                           |
+| `/accounts/profile/edit/`                | Edit profile (name, bio, phone, avatar)     |
+| `/accounts/password-change/`             | Change password (authenticated)             |
+| `/accounts/password-reset/`              | Request password reset email                |
+| `/accounts/password-reset/done/`         | After reset email sent                      |
+| `/accounts/password-reset/<uidb64>/<token>/` | Set new password (from email)           |
+| `/accounts/password-reset/complete/`     | Password reset successful                   |
 
 ---
 
@@ -182,31 +235,48 @@ bookshelf/                    # Django project folder
 │   ├── urls.py
 │   ├── wsgi.py
 │   └── asgi.py
-└── catalog/                  # main application
-    ├── models.py             # Book, Review, ReaderFavorite
-    ├── views.py              # FBVs, CBV, search, sharing, review
-    ├── forms.py              # EmailBookForm, ReviewForm, SearchForm
-    ├── admin.py              # BookAdmin, ReviewAdmin
-    ├── urls.py
-    ├── feeds.py              # LatestBooksFeed
-    ├── sitemaps.py           # BookSitemap
-    ├── templatetags/
-    │   └── catalog_tags.py   # custom tags & markdown filter
-    ├── migrations/           # database migrations (including trigram extension)
-    ├── fixtures/             # optional data fixtures
-    └── templates/
-        ├── pagination.html   # reusable pagination snippet
-        └── catalog/
-            ├── base.html
-            ├── book/
-            │   ├── list.html
-            │   ├── detail.html
-            │   ├── share.html
-            │   ├── review.html
-            │   ├── search.html
-            │   ├── latest_books.html
-            │   └── includes/
-            │       └── review_form.html
+├── catalog/                  # main catalogue application
+│   ├── models.py             # Book, Review
+│   ├── views.py
+│   ├── forms.py
+│   ├── admin.py
+│   ├── urls.py
+│   ├── feeds.py
+│   ├── sitemaps.py
+│   ├── templatetags/
+│   ├── migrations/
+│   └── templates/
+├── accounts/                 
+│   ├── models.py
+│   ├── views.py             
+│   ├── forms.py    
+│   ├── backends.py
+│   ├── signals.py
+│   ├── admin.py
+│   ├── urls.py
+│   ├── apps.py              
+│   ├── migrations/
+│   └── templates/
+│       ├── accounts/
+│       │   ├── register.html
+│       │   ├── register_done.html
+│       │   ├── register_confirm.html
+│       │   ├── login.html
+│       │   ├── logout.html
+│       │   ├── profile.html
+│       │   ├── profile_edit.html
+│       │   └── email/
+│       │       └── verification_email.txt
+│       └── registration/     # password‑reset templates
+│           ├── password_change_form.html
+│           ├── password_change_done.html
+│           ├── password_reset_form.html
+│           ├── password_reset_confirm.html
+│           ├── password_reset_done.html
+│           ├── password_reset_email.html
+│           └── password_reset_complete.html
+└── media/                    # uploaded files (e.g., avatars/)
+    └── avatars/
 ```
 
 ---
@@ -218,7 +288,7 @@ Load them with `{% load catalog_tags %}` in any template.
 - **`{% total_books %}`** – shows the total number of published books.
 - **`{% show_latest_books 3 %}`** – renders a list of the 3 latest published books.
 - **`{% get_most_reviewed_books as most_reviewed %}`** – retrieves the most reviewed books.
-- **`{{ content|markdown }}`** – converts Markdown text to safe HTML. Used for book synopses.
+- **`{{ content|markdown }}`** – converts Markdown text to safe HTML.
 
 ---
 
@@ -232,10 +302,15 @@ The search page (`/catalog/search/?query=...`) uses PostgreSQL full‑text searc
 
 ---
 
-## Sitemap & RSS
+## Email Verification Flow
 
-- **Sitemap**: `/sitemap.xml` – generates a sitemap index with URLs for all published books. Ensure the `Site` object (in admin) has the correct domain.
-- **RSS Feed**: `/catalog/feed/` – delivers the latest 5 books as RSS 2.0.
+1. User fills out the registration form (`/accounts/register/`).
+2. An email is sent with a 6‑digit code and a unique magic link.
+3. The user must either:
+   - Enter the code on the verification page (`/accounts/register/confirm/`), or
+   - Click the magic link, which automatically verifies the account.
+4. Once verified, the account is activated, a `Profile` is created, and the user is logged in automatically.
+5. The code and link expire after 15 minutes. Users can request a new code if needed.
 
 ---
 
@@ -259,13 +334,15 @@ If you started with SQLite and later switched to PostgreSQL, follow these steps:
 ## Technologies Used
 
 - **Backend**: Django 5.2, Python 3.12+
-- **Database**: PostgreSQL 16 (with `psycopg` 3 driver)
-- **Templating**: Django templates + Bootstrap 5 (customised UI)
+- **Database**: PostgreSQL 16 (with `psycopg` 3 driver) or SQLite
+- **Templating**: Django templates + Tailwind CSS (premium UI kit)
 - **Tagging**: django‑taggit
 - **Markdown**: Python‑Markdown library
 - **Email**: SMTP or console backend (via python‑decouple)
 - **Search**: PostgreSQL full‑text search + trigram similarity
-- **Additional**: Docker (for local PostgreSQL), python‑decouple for configuration
+- **User authentication**: Custom email‑based backend, OTP & magic‑link verification
+- **Image handling**: Pillow for avatar uploads
+- **Additional**: Docker (optional), python‑decouple for configuration
 
 ---
 
@@ -284,3 +361,4 @@ Feel free to use, modify, and extend it.
 ---
 
 **Happy cataloguing! 📚**
+```

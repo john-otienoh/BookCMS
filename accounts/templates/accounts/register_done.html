@@ -1,0 +1,27 @@
+{% extends "catalog/base.html" %}
+{% block title %}Check your email - BookShelf CMS{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center px-4 py-12">
+  <div class="w-full max-w-md text-center">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-8 sm:p-10">
+      <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900/40 mb-6">
+        <svg class="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      </div>
+      <h1 class="font-serif text-2xl font-bold text-slate-900 dark:text-white">Check your email</h1>
+      <p class="mt-3 text-sm text-slate-500 dark:text-slate-400">
+        We've sent a 6-digit verification code and a confirmation link to your email address.
+      </p>
+      <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+        Enter the code below or click the link in the email to finish creating your account.
+      </p>
+      <a href="{% url 'register_confirm' %}" class="mt-8 inline-flex items-center gap-2 rounded-full bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 transition">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /></svg>
+        Enter verification code
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

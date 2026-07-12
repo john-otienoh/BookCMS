@@ -1,0 +1,70 @@
+{% extends "catalog/base.html" %}
+{% block title %}Verify your email - BookShelf CMS{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center px-4 py-12">
+  <div class="w-full max-w-md">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-8">
+      <div class="text-center mb-8">
+        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900/40 mb-4">
+          <svg class="w-6 h-6 text-primary-600 dark:text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+        </div>
+        <h1 class="font-serif text-2xl font-bold text-slate-900 dark:text-white">Verify your email</h1>
+      </div>
+
+      {% if validlink %}
+        {% if form.non_field_errors %}
+          <div class="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+            {% for error in form.non_field_errors %}
+              <p class="text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg>
+                {{ error }}
+              </p>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <form method="post" novalidate class="space-y-5">
+          {% csrf_token %}
+          {% for field in form %}
+            <div>
+              <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{{ field.label }}</label>
+              <input
+                type="text"
+                name="{{ field.name }}"
+                id="{{ field.id_for_label }}"
+                class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
+                placeholder="Enter verification code"
+                value="{{ field.value|default_if_none:'' }}"
+                required
+              >
+            </div>
+          {% endfor %}
+          <button type="submit" class="w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 transition">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /></svg>
+            Verify
+          </button>
+        </form>
+
+        <form method="post" action="{% url 'resend_otp' %}" class="mt-3">
+          {% csrf_token %}
+          <button type="submit" class="w-full text-center text-sm text-primary-600 dark:text-primary-400 hover:underline font-medium">
+            Resend code
+          </button>
+        </form>
+      {% else %}
+        <div class="text-center">
+          <p class="text-sm text-slate-500 dark:text-slate-400">
+            This verification link is invalid or has expired.
+          </p>
+          <a href="{% url 'register' %}" class="mt-6 inline-flex items-center gap-2 rounded-full bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 transition">
+            Sign up again
+          </a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

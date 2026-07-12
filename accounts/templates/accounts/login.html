@@ -1,0 +1,64 @@
+{% extends "catalog/base.html" %}
+{% block title %}Sign in - BookShelf CMS{% endblock %}
+
+{% block content %}
+<div class="min-h-[80vh] flex items-center justify-center px-4 py-12">
+  <div class="w-full max-w-md">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-8">
+      <div class="text-center mb-8">
+        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900/40 mb-4">
+          <svg class="w-6 h-6 text-primary-600 dark:text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        </div>
+        <h1 class="font-serif text-2xl font-bold text-slate-900 dark:text-white">Sign in</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Welcome back to BookShelf</p>
+      </div>
+
+      {% if form.non_field_errors %}
+        <div class="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+          {% for error in form.non_field_errors %}
+            <p class="text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg>
+              {{ error }}
+            </p>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <form method="post" novalidate class="space-y-5">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.GET.next|escape }}" />
+        {% for field in form %}
+          <div>
+            <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{{ field.label }}</label>
+            <input
+              type="{{ field.field.widget.input_type }}"
+              name="{{ field.name }}"
+              id="{{ field.id_for_label }}"
+              class="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition"
+              placeholder="Enter {{ field.label|lower }}"
+              value="{{ field.value|default_if_none:'' }}"
+              {% if field.field.required %}required{% endif %}
+            >
+            {% if field.errors %}
+              <p class="mt-1 text-sm text-red-500 dark:text-red-400">{{ field.errors|striptags }}</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+        <div class="flex justify-end">
+          <a href="{% url 'password_reset' %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">Forgot your password?</a>
+        </div>
+        <button type="submit" class="w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 transition">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+          Sign in
+        </button>
+      </form>
+      <p class="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
+        Don't have an account?
+        <a href="{% url 'register' %}" class="font-medium text-primary-600 dark:text-primary-400 hover:underline">Sign up</a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

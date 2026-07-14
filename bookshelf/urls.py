@@ -26,6 +26,7 @@ sitemaps = {"books": BookSitemap, 'tags':  TagSitemap}
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('accounts.urls')),
+    path('social-auth/', include('social_django.urls', namespace='social')),
     path('catalog/', include('catalog.urls', namespace='catalog')),
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap')
 ]

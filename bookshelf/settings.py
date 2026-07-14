@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-rphsz^b8yep_0a9ocwnmvp7^04x@8ki7p=lfbkf)9l3@e6am=*
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['f021-102-220-20-32.ngrok-free.app', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['bookshelfcms.com', 'localhost', '127.0.0.1']
 
 SITE_ID = 1
 # Application definition
@@ -46,6 +46,9 @@ INSTALLED_APPS = [
 
     # Third party apps
     "taggit",
+    "social_django",
+    "django_extensions",
+    
 
     # Local Apps
     "catalog.apps.CatalogConfig",
@@ -73,6 +76,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                "social_django.context_processors.backends",
+                "social_django.context_processors.login_redirect",
             ],
         },
     },
@@ -162,6 +167,7 @@ LOGIN_REDIRECT_URL = 'catalog:book_list'
 AUTHENTICATION_BACKENDS = [
     "accounts.backend.EmailBackend",
     "django.contrib.auth.backends.ModelBackend",
+    'social_core.backends.google.GoogleOAuth2',
 ]
 
 MEDIA_URL = '/media/'
@@ -171,3 +177,22 @@ CSRF_TRUSTED_ORIGINS = [
     'https://f021-102-220-20-32.ngrok-free.app',
 ]
 
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = config('CLIENT_ID') 
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = config('CLIENT_SECRET')
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = ["email", "profile"]
+SOCIAL_AUTH_URL_NAMESPACE = "social"
+SOCIAL_AUTH_LOGIN_ERROR_URL = "login"
+
+SOCIAL_AUTH_PIPELINE = (
+    "social_core.pipeline.social_auth.social_details",
+    "social_core.pipeline.social_auth.social_uid",
+    "social_core.pipeline.social_auth.auth_allowed",
+    "social_core.pipeline.social_auth.social_user",
+    "social_core.pipeline.user.get_username",
+    "accounts.pipeline.check_existing_email",   
+    "social_core.pipeline.user.create_user",
+    "social_core.pipeline.social_auth.associate_user",
+    "social_core.pipeline.social_auth.load_extra_data",
+    "social_core.pipeline.user.user_details",
+    "accounts.pipeline.create_profile",          
+)

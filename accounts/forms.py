@@ -15,11 +15,14 @@ class SignUpForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ["username", "email"]
-
+    
     def clean_email(self):
         email = self.cleaned_data["email"].lower()
-        if User.objects.filter(email__iexact=email).exists():
-            raise ValidationError("An account with this email already exists.")
+        existing = User.objects.filter(email__iexact=email).first()
+        if existing is not None:
+            if existing.is_active:
+                raise ValidationError("An account with this email already exists.")
+            existing.delete()  
         return email
 
     def clean(self):

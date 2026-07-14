@@ -86,7 +86,10 @@ __pycache__/
 local_settings.py
 
 .env
-db.sqlite3
-.key
-.crt
-.sqlite3
+# Database files
+*.sqlite
+*.sqlite3
+
+# Certificate files
+*.crt
+*.key

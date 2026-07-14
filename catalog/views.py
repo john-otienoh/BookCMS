@@ -102,7 +102,7 @@ def book_share(request, book):
             subject = (f"{cd['name']} ({cd['email']}) " f"recommends you read {book.title}")
             message = (
                 f"Read {book.title} at {book_url}\n\n"
-                f"{cd['name']}'s reviews: {cd['reviews']}"
+                f"{cd['name']}'s reviews: {cd['comments']}"
             )
             send_mail(subject=subject, message=message, from_email=None, recipient_list=[cd['to']])
             sent = True
@@ -154,14 +154,14 @@ def book_search(request):
                 .order_by('-rank')
             )
             if not results:
-                results = (
-                    Book.published.annotate(
-                        similarity=TrigramSimilarity('title', query)
-                    )
-                    .filter(similarity__gt=0.1)
-                    .order_by('-similarity')
-                )
-                full_text_empty = True 
+                results = Book.published.annotate(
+                    similarity=TrigramSimilarity('title', query)
+                ).filter(similarity__gt=0.1).order_by('-similarity')
+                if not results:
+                    results = Book.published.annotate(
+                        similarity=TrigramSimilarity('synopsis', query)
+                    ).filter(similarity__gt=0.05).order_by('-similarity')
+                    full_text_empty = True
 
     return render(request, 'catalog/book/search.html', {
         'form': form,

@@ -361,4 +361,3 @@ Feel free to use, modify, and extend it.
 ---
 
 **Happy cataloguing! 📚**
-```

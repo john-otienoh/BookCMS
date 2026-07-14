@@ -1795,3 +1795,287 @@ OUT OF SCOPE (deliberately excluded — covered in Chapter 5)
   user gap noted in Phase 29)
 
 END OF ROADMAP
+BOOKSHELF CMS — CHAPTER 5 IMPLEMENTATION ROADMAP
+Mirrors: "Django 5 by Example", Chapter 5 — Implementing Social
+         Authentication
+Prerequisite: Chapters 1-4 roadmaps complete (bookshelf project, catalog
+app fully built, accounts app with login/logout/password
+change+reset/registration/ReaderProfile all working).
+
+FORMAT NOTE (carried over from Chapter 4): no implementation code below —
+no class bodies, no field/setting values written as literal code, no
+HTML/view/form/pipeline snippets. Every task describes WHAT to build and
+WHERE, so you write the actual Django code yourself. Shell commands and
+external console steps (Google Cloud setup, hosts file edits) are still
+spelled out, since those aren't the part you're practicing.
+
+Scope rule: every task below maps 1:1 to a section in Chapter 5. Nothing
+from Chapter 6+ (image bookmarking, many-to-many relationships, custom
+form field behavior, image thumbnails, AJAX with JavaScript) is included
+on purpose — see OUT OF SCOPE at the end.
+
+============================================================
+0. NEW NAMING FOR THIS CHAPTER
+============================================================
+account/authentication.py       -> accounts/authentication.py (path change
+                                    only, following the app rename from
+                                    Chapter 4)
+create_profile (pipeline func)   -> create_reader_profile (renamed to
+                                    match the Chapter 4 Profile ->
+                                    ReaderProfile rename)
+EmailAuthBackend                  -> unchanged — generic auth-system
+                                     vocabulary, nothing domain-specific to
+                                     shift (same reasoning as LoginForm,
+                                     UserEditForm etc. in Chapter 4)
+mysite.com (book's local dev host)  -> your choice — consider
+                                       bookshelfcms.test instead of a
+                                       .com-style name; .test is a
+                                       reserved TLD (RFC 2606) meant
+                                       exactly for this, so it can never
+                                       collide with a real domain later
+"Bookmarks" (Google Cloud project     -> "BookShelf CMS"
+ name in the book)
+
+Target end-state additions (on top of the Chapter 1-4 tree):
+
+bookshelf/
+    .env                       (+ GOOGLE_OAUTH2_KEY, GOOGLE_OAUTH2_SECRET)
+    cert.crt                   (generated locally by runserver_plus —
+                                 gitignore this)
+    bookshelf/
+        settings.py            (+ AUTHENTICATION_BACKENDS, ALLOWED_HOSTS,
+                                  social_django + django_extensions in
+                                  INSTALLED_APPS, SOCIAL_AUTH_GOOGLE_OAUTH2_KEY
+                                  / _SECRET, SOCIAL_AUTH_PIPELINE)
+        urls.py                 (+ social_django URL include, namespaced)
+    accounts/
+        authentication.py        (new: EmailAuthBackend,
+                                    create_reader_profile)
+        forms.py                  (+ clean_email validators on
+                                     UserRegistrationForm and UserEditForm)
+        templates/
+            base.html               (+ messages display block)
+            registration/
+                login.html            (+ "Sign in with Google" link)
+
+============================================================
+PHASE 32 — MESSAGES FRAMEWORK FEEDBACK
+============================================================
+Book ref: "Using the messages framework"
+
+Tasks:
+[ ] Confirm django.contrib.messages and its middleware are already
+    present — they're included by default ever since Chapter 1's
+    startproject, so there's nothing new to install or register here
+[ ] Update accounts/templates/base.html to render any queued messages:
+    loop over the messages variable that the messages context processor
+    already adds to every request's context, and for each one render its
+    text plus its "tag" (info/success/warning/error/debug) as a CSS class
+    so each severity can be styled distinctly; include a way to dismiss
+    each one
+[ ] Update your Chapter 4 Phase 30 profile-edit view to queue a success
+    message once both the user-edit and profile-edit forms save cleanly,
+    and an error message if either form fails validation
+
+Deliverable: message rendering wired into base.html, success/error
+messages wired into the edit view
+Definition of done: successfully saving your profile shows a dismissible
+success banner; submitting something invalid (try a malformed date of
+birth) shows a dismissible error banner instead.
+
+============================================================
+PHASE 33 — CUSTOM EMAIL AUTHENTICATION BACKEND
+============================================================
+Book ref: "Building a custom authentication backend"
+
+Tasks:
+[ ] Create a new accounts/authentication.py module
+[ ] Define an EmailAuthBackend class implementing the two methods
+    Django's auth system requires from any backend:
+      - one that accepts a request plus username/password-shaped
+        arguments (keep the parameter named `username` even though
+        you'll treat it as an email address — that's what lets this
+        backend slot into the existing login form and built-in views
+        without any changes on their side), looks up the matching user
+        by email, and returns that user only if the password checks out
+        against it. Treat both "no user with that email" and "more than
+        one user with that email" as an ordinary failed login, not an
+        exception that bubbles up.
+      - one that accepts a user ID and returns the matching user, used
+        by Django to reload the authenticated user for the rest of the
+        session
+[ ] Add this backend's dotted path to AUTHENTICATION_BACKENDS, after the
+    default ModelBackend — order matters: Django tries backends in
+    order and stops at the first success, so username/password logins
+    should keep resolving via the default backend exactly as before,
+    with your new backend only coming into play for email-based logins
+
+Deliverable: accounts/authentication.py with EmailAuthBackend, updated
+AUTHENTICATION_BACKENDS setting
+Definition of done: the same login form now accepts either a username or
+an email address in the "username" field, with the same password, and
+logs the reader in either way.
+
+============================================================
+PHASE 34 — PREVENTING DUPLICATE EMAIL REGISTRATION
+============================================================
+Book ref: "Preventing users from using an existing email address"
+
+Tasks:
+[ ] Add a field-level validator on UserRegistrationForm's email field
+    that rejects the submission if any existing user already has that
+    exact email address
+[ ] Add the equivalent validator on UserEditForm's email field — but
+    this one must exclude the current user from the "is this email
+    already taken" check, or every reader would fail validation the
+    moment they re-submit their own unchanged email
+
+Deliverable: updated UserRegistrationForm and UserEditForm
+Definition of done: registering with an email already in use is rejected
+with a clear message; editing your profile without touching your email
+still saves fine; trying to change your email to one that belongs to
+someone else is rejected.
+
+============================================================
+PHASE 35 — SOCIAL AUTH PACKAGE BOOTSTRAP + LOCAL DOMAIN SETUP
+============================================================
+Book ref: "Adding social authentication to your site"
+
+Tasks:
+[ ] Install Python Social Auth's Django integration package
+[ ] Add its app to INSTALLED_APPS and run migrate — it ships its own
+    migrations to track linked social identities
+[ ] Include its URL patterns in bookshelf's root urls.py under a
+    namespace (the book uses 'social') and whatever URL prefix you like
+[ ] Pick a fake local hostname for testing (see the naming note at the
+    top — bookshelfcms.test is a solid choice) and add a line to your
+    machine's hosts file (/etc/hosts on Linux/macOS, or
+    C:\Windows\System32\Drivers\etc\hosts on Windows) pointing it at
+    127.0.0.1
+[ ] Add that hostname — plus localhost and 127.0.0.1 for good measure —
+    to ALLOWED_HOSTS in settings.py
+[ ] Confirm you hit Django's "invalid host header" error before making
+    the ALLOWED_HOSTS change, and that it's gone afterward when loading
+    your login page through the new hostname (still on plain HTTP at
+    this stage)
+
+Deliverable: social_django installed and migrated, its URLs included, a
+local domain mapped in your hosts file and allowed in settings
+Definition of done: your login page loads over http://<your-domain>:8000/
+with no host-header error.
+
+============================================================
+PHASE 36 — HTTPS DEV SERVER VIA DJANGO EXTENSIONS
+============================================================
+Book ref: "Running the development server through HTTPS"
+
+Tasks:
+[ ] Install Django Extensions, Werkzeug (its RunServerPlus command needs
+    Werkzeug's debugger layer), and pyOpenSSL (needed for the TLS
+    support)
+[ ] Add django_extensions to INSTALLED_APPS
+[ ] Run the project with the runserver_plus management command instead
+    of the ordinary runserver, pointing it at a certificate filename so
+    it generates a self-signed certificate for you on the fly
+[ ] Load your local domain over https:// and accept your browser's
+    self-signed-certificate warning (the exact click-path differs by
+    browser, but you're looking for the "proceed anyway" equivalent)
+
+Deliverable: dev server reachable over HTTPS on your local domain
+Definition of done: your login page loads over https://<your-domain>:8000/,
+with your browser showing the connection as secure (even if flagged as
+self-signed).
+
+============================================================
+PHASE 37 — GOOGLE OAUTH2 SIGN-IN
+============================================================
+Book ref: "Authentication using Google"
+
+Tasks:
+[ ] Add Python Social Auth's Google OAuth2 backend's dotted path to
+    AUTHENTICATION_BACKENDS, after your email backend
+[ ] In Google Cloud Console: create a new project named after BookShelf
+    CMS (not "Bookmarks"), configure its OAuth consent screen as an
+    External app, add your own Google account as a test user, then
+    create an OAuth client ID of type "Web application" — set its
+    authorized JavaScript origin and authorized redirect URI to your
+    HTTPS local domain from Phases 35-36 (the redirect URI needs the
+    specific completion path Python Social Auth's Google backend expects
+    — check its docs or the URL namespace you registered in Phase 35 for
+    the exact shape)
+[ ] Store the resulting client ID and secret in your .env file, not
+    directly in settings.py
+[ ] Install python-decouple if this is a fresh environment that doesn't
+    already have it (you used it for email and database credentials back
+    in the Chapter 2/3 roadmaps), and load the two new values into two
+    new SOCIAL_AUTH_GOOGLE_OAUTH2_* settings
+[ ] Add a "Sign in with Google" link to your login template, pointing at
+    the social-auth "begin" URL for the google-oauth2 backend name
+
+Deliverable: Google OAuth2 backend configured, credentials in .env, a
+sign-in link on the login page
+Definition of done: clicking "Sign in with Google" on your HTTPS local
+domain walks you through Google's consent screen and lands you back on
+your dashboard, logged in.
+
+============================================================
+PHASE 38 — AUTO-CREATING READER PROFILES FOR SOCIAL SIGN-INS
+============================================================
+Book ref: "Creating a profile for users that register with social
+          authentication"
+
+Tasks:
+[ ] Add a SOCIAL_AUTH_PIPELINE setting to settings.py, starting from
+    Python Social Auth's documented default pipeline (look it up rather
+    than retyping it from memory — it's a specific ordered list of
+    library-provided function paths)
+[ ] Write a small pipeline function in accounts/authentication.py —
+    name it create_reader_profile to match the Chapter 4 rename — that
+    accepts the backend and user arguments every pipeline step receives,
+    and uses get_or_create() against your ReaderProfile model so it's a
+    no-op for a returning reader and creates exactly one profile for a
+    brand-new one
+[ ] Insert your new step into the SOCIAL_AUTH_PIPELINE list immediately
+    after the step that creates new User objects, so a User is
+    guaranteed to already exist by the time your function runs
+[ ] Test it: delete (in /admin/) a user you previously created via
+    Google sign-in, sign in with Google again, and confirm a new User
+    and a new ReaderProfile both appear
+
+Deliverable: SOCIAL_AUTH_PIPELINE setting, create_reader_profile pipeline
+function
+Definition of done: every reader created via Google sign-in ends up with
+a matching ReaderProfile automatically. Note: users created directly
+through /admin/ still won't get one — that gap is closed with Django
+signals in Chapter 7, not here.
+
+============================================================
+MANAGEMENT COMMAND CHEAT SHEET — CHAPTER 5 ADDITIONS
+============================================================
+python -m pip install social-auth-app-django==5.4.0
+python -m pip install django-extensions==3.2.3
+python -m pip install werkzeug==3.0.2
+python -m pip install pyOpenSSL==24.1.0
+python -m pip install python-decouple==3.8    # if not already installed
+python manage.py migrate                       # after adding social_django
+python manage.py runserver_plus --cert-file cert.crt
+
+============================================================
+DOMAIN MAPPING TABLE — CHAPTER 5 ADDITIONS
+============================================================
+account/authentication.py       -> accounts/authentication.py
+create_profile                   -> create_reader_profile
+Profile.objects.get_or_create()   -> ReaderProfile.objects.get_or_create()
+mysite.com                         -> bookshelfcms.test (suggested)
+"Bookmarks" Google Cloud project    -> "BookShelf CMS"
+
+============================================================
+OUT OF SCOPE (deliberately excluded — covered in Chapter 6)
+============================================================
+- The image-bookmarking system itself
+- Many-to-many relationships
+- Customizing form field behavior
+- Generating image thumbnails
+- AJAX functionality with JavaScript
+
+END OF ROADMAP

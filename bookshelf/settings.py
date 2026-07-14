@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-rphsz^b8yep_0a9ocwnmvp7^04x@8ki7p=lfbkf)9l3@e6am=*
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['f021-102-220-20-32.ngrok-free.app', 'localhost', '127.0.0.1']
 
 SITE_ID = 1
 # Application definition
@@ -146,8 +146,8 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 # Email Server Configuration
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com' 
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# EMAIL_HOST = 'smtp.gmail.com' 
 EMAIL_HOST_USER = config('EMAIL_HOST_USER') 
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD') 
 EMAIL_PORT = 587 
@@ -160,9 +160,14 @@ LOGOUT_REDIRECT_URL = 'catalog:book_list'
 LOGIN_REDIRECT_URL = 'catalog:book_list'    
 
 AUTHENTICATION_BACKENDS = [
-    "accounts.backends.EmailBackend",
+    "accounts.backend.EmailBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://f021-102-220-20-32.ngrok-free.app',
+]
+

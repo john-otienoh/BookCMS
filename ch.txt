@@ -2079,3 +2079,435 @@ OUT OF SCOPE (deliberately excluded — covered in Chapter 6)
 - AJAX functionality with JavaScript
 
 END OF ROADMAP
+
+BOOKSHELF CMS — CHAPTER 6 IMPLEMENTATION ROADMAP
+Mirrors: "Django 5 by Example", Chapter 6 — Sharing Content on Your
+         Website
+Prerequisite: Chapters 1-5 roadmaps complete (bookshelf project: catalog
+app fully built; accounts app with auth, email backend, social Google
+login, ReaderProfile all working).
+
+FORMAT NOTE (carried over from Chapters 4-5): no implementation code
+below — no class bodies, no field/setting values written as literal
+code, no HTML/JS/view/form snippets. Every task describes WHAT to build
+and WHERE, so you write the actual code yourself. Shell commands are
+still spelled out.
+
+Scope rule: every task below maps 1:1 to a section in Chapter 6. Nothing
+from Chapter 7+ (follow system, activity stream, generic relations,
+signals, denormalization, Redis view counts/ranking) is included on
+purpose — see OUT OF SCOPE at the end.
+
+============================================================
+0. NEW NAMING FOR THIS CHAPTER
+============================================================
+images app                       -> discoveries app (a "discovery" is a
+                                     book a reader found elsewhere on the
+                                     web and is bookmarking into your
+                                     catalog's intake pipeline)
+Image model                       -> Discovery model
+Image.user                         -> Discovery.submitted_by
+                                       (related_name: discoveries_submitted)
+Image.url                           -> Discovery.source_url
+Image.image                          -> Discovery.cover_image
+                                         (upload_to: discoveries/%Y/%m/%d/)
+Image.description                    -> Discovery.notes
+Image.users_like                      -> Discovery.readers_interested
+                                          (related_name:
+                                          discoveries_interested)
+ImageCreateForm                        -> DiscoveryCreateForm
+image_create / image_detail /           -> discovery_create /
+image_like / image_list                   discovery_detail /
+                                            discovery_interest /
+                                            discovery_list
+"Like" / "Unlike" button text            -> "I'm interested" / "Remove
+                                             interest" (the underlying
+                                             action parameter values can
+                                             stay like/unlike internally —
+                                             only the reader-facing label
+                                             changes; see Phase 46)
+images_only GET parameter                 -> partial (same purpose:
+                                              signals an AJAX request that
+                                              wants only the HTML fragment,
+                                              not the full page)
+bookmarklet / bookmarklet.js /             -> UNCHANGED — this vocabulary
+bookmarklet_launcher.js /                     already fits a book-cataloging
+"Bookmark it!" button text                    site better than it fit the
+                                               original blog-turned-image
+                                               site. No rename needed.
+user.profile.photo                          -> user.readerprofile.photo
+                                                (reflects the Chapter 4
+                                                Profile -> ReaderProfile
+                                                rename and its default
+                                                reverse-accessor name)
+easy-thumbnails, Requests library              -> unchanged (third-party
+                                                   packages, not yours to
+                                                   rename)
+
+Target end-state additions:
+
+bookshelf/
+    bookshelf/
+        settings.py            (+ discoveries + easy_thumbnails in
+                                  INSTALLED_APPS; optional DEBUG-only
+                                  mimetypes.add_type fix if you hit MIME
+                                  errors loading the bookmarklet's JS/CSS)
+        urls.py                 (+ discoveries app include)
+    discoveries/
+        admin.py                 (DiscoveryAdmin)
+        forms.py                  (DiscoveryCreateForm)
+        models.py                  (Discovery)
+        views.py                    (discovery_create, discovery_detail,
+                                      discovery_interest, discovery_list)
+        urls.py
+        migrations/
+            0001_initial.py
+        static/
+            css/
+                bookmarklet.css       (adapt the book's chapter 6 asset —
+                                        see Phase 43)
+            js/
+                bookmarklet.js
+        templates/
+            bookmarklet_launcher.js    (unnamespaced, same pattern as
+                                         catalog's pagination.html back in
+                                         Chapter 2/3)
+            discoveries/
+                discovery/
+                    create.html
+                    detail.html
+                    list.html
+                    list_items.html
+
+============================================================
+PHASE 39 — BASE TEMPLATE CONSOLIDATION (required adaptation)
+============================================================
+Book ref: none directly — this phase exists only because Chapters 1-3
+          and Chapters 4-6 are separate projects in the book, each with
+          its own base.html. Folding both into one bookshelf project (as
+          you asked back in Chapter 4) means you now have two competing
+          base templates, and this chapter needs exactly one — the
+          messages block, the domready script block, and the CSRF-cookie
+          script all belong on every page, catalog included.
+
+Tasks:
+[ ] Pick one canonical, project-wide base template. Recommended:
+    promote accounts/templates/base.html to this role, since it already
+    has the auth-aware header (login state, nav menu) that every page —
+    catalog and discoveries alike — should share
+[ ] Move catalog's sidebar content (the total-books/latest-books/
+    most-reviewed-books widgets and the RSS subscribe link from Chapter
+    3) into an optional block in the shared base template, so catalog
+    pages can fill it in while accounts/discoveries pages simply leave it
+    empty
+[ ] Update every catalog template that currently extends catalog's own
+    base.html to extend the shared one instead — the {% load catalog_tags
+    %} tag still works fine regardless of which base template a page
+    extends, since template tag libraries are project-wide, not scoped to
+    one app's template directory
+[ ] Retire catalog/templates/catalog/base.html once nothing extends it
+    anymore
+
+Deliverable: one shared base.html used by catalog, accounts, and (soon)
+discoveries pages
+Definition of done: every existing page in the project — book list/detail,
+dashboard, login, etc. — still renders correctly through the single
+shared base template; catalog's sidebar widgets still only appear on
+catalog pages.
+
+============================================================
+PHASE 40 — DISCOVERIES APP & DISCOVERY MODEL BOOTSTRAP
+============================================================
+Book ref: "Creating an image bookmarking website", "Building the image
+          model"
+
+Tasks:
+[ ] Create a new app named discoveries inside the bookshelf project and
+    register it in INSTALLED_APPS
+[ ] Build the Discovery model with: a foreign key to the user model
+    (cascading delete, related name discoveries_submitted) recording who
+    submitted it; a title; a slug (blank-allowed at the field level,
+    since you'll auto-generate it); a source URL field (allow a generous
+    max length — book pages can have long URLs); a cover image field
+    uploading under a dated discoveries/ subdirectory; an optional notes
+    field; and a created timestamp set automatically on creation
+[ ] Add a descending index and default ordering on created, same
+    reasoning as Book.publish back in Chapter 1
+[ ] Override the model's save() method so that if no slug was provided,
+    one gets generated from the title automatically before saving
+[ ] Generate and apply the migration
+[ ] Register Discovery in the admin with a sensible list display and a
+    filter on created
+
+Deliverable: discoveries app + Discovery model + migration + admin
+registration
+Definition of done: you can create a Discovery entry through /admin/ (with
+a manually uploaded cover image) and see it listed there with an
+auto-generated slug when you leave the slug field blank.
+
+============================================================
+PHASE 41 — MANY-TO-MANY "INTERESTED READERS" RELATIONSHIP
+============================================================
+Book ref: "Creating many-to-many relationships"
+
+Tasks:
+[ ] Add a many-to-many field to Discovery linking it to the user model
+    (related name discoveries_interested, optional/blank), representing
+    every reader who's expressed interest in that discovered book
+[ ] Generate and apply the resulting migration (note, per the book: this
+    creates its own intermediary join table automatically — you don't
+    define that table yourself)
+[ ] In the shell, practice the many-to-many manager directly on a test
+    Discovery object: add a couple of readers to its interested-readers
+    set, list them back out, remove one, and confirm the reverse side
+    works too (i.e., a reader object can list every discovery they're
+    interested in)
+
+Deliverable: Discovery.readers_interested field + migration
+Definition of done: you can add/remove interested readers on a Discovery
+from the shell and see the relationship reflected from both directions.
+
+============================================================
+PHASE 42 — DISCOVERY SUBMISSION FORM & VIEW
+============================================================
+Book ref: "Posting content from other websites", "Cleaning form fields",
+          "Installing the Requests library", "Overriding the save()
+          method of a ModelForm"
+
+Tasks:
+[ ] Build DiscoveryCreateForm as a model form over Discovery, including
+    only title, source_url, and notes — override source_url's widget so
+    it renders as a hidden field (readers won't type this by hand; the
+    bookmarklet in Phase 43 will supply it via a GET parameter)
+[ ] Add a field-level validator on source_url that checks the file
+    extension (splitting on the last dot) and rejects anything other than
+    jpg/jpeg/png
+[ ] Install the Requests library
+[ ] Override the form's save() method: build the model instance without
+    committing yet, derive a filename by slugifying the title and
+    reusing the original extension, use Requests to download the file
+    from source_url, and attach the downloaded bytes to the cover_image
+    field (without saving to the database yet) before finally saving if
+    the form's own commit flag says to
+[ ] Build a login-required discovery_create view: on GET, build the form
+    from the GET parameters (this is what lets the bookmarklet pre-fill
+    title/url); on POST, validate, save without committing, assign
+    submitted_by to the current user, save for real, queue a success
+    message, and redirect to the new object's canonical URL (which
+    doesn't exist yet — that's Phase 44, so expect an error here for now,
+    same as the book does)
+[ ] Wire the URL and build the create template, including a live preview
+    of the image at the URL passed in via the GET parameter
+
+Deliverable: DiscoveryCreateForm, discovery_create view + URL + template
+Definition of done: visiting the create URL with a title and a direct
+image URL as GET parameters shows a pre-filled form with an image
+preview; submitting it downloads and stores the image and creates a
+Discovery row (the redirect will still error until Phase 44 — that's
+expected).
+
+============================================================
+PHASE 43 — JAVASCRIPT BOOKMARKLET
+============================================================
+Book ref: "Building a bookmarklet with JavaScript"
+
+Tasks:
+[ ] Create the launcher script (an unnamespaced template file, same
+    pattern as pagination.html) that checks a window-level flag to avoid
+    loading twice, and either injects the real bookmarklet script tag
+    (with a cache-busting random query parameter) or, if already loaded,
+    calls the launch function directly
+[ ] Add a link to this launcher script to the reader dashboard template
+    (in the accounts app), styled as a draggable "Bookmark it!" button,
+    alongside a count of how many discoveries the current reader has
+    submitted so far
+[ ] Create the actual bookmarklet static JS file: load its CSS
+    stylesheet dynamically (with the same cache-busting trick), inject an
+    overlay container into the page's DOM, and define the launch function
+    that shows the overlay, wires up its close control, scans the current
+    page for JPEG/PNG images at or above a minimum width/height, and
+    displays thumbnails of the qualifying ones inside the overlay
+[ ] Wire a click handler on each thumbnail in the overlay so that
+    clicking one closes the overlay and opens your discovery_create URL
+    in a new tab, passing the clicked image's URL and the current page's
+    title as GET parameters
+[ ] Adapt (or write your own version of) the bookmarklet's CSS for the
+    overlay's look
+[ ] Remember you need HTTPS for this to work at all — keep running the
+    dev server via runserver_plus with your cert, on your local domain
+    from Chapter 5, not plain runserver
+[ ] If you hit a MIME-type error loading the JS/CSS, add the DEBUG-only
+    mimetypes fix mentioned in the book to settings.py
+
+Deliverable: bookmarklet_launcher.js, static/js/bookmarklet.js,
+static/css/bookmarklet.css, updated dashboard template
+Definition of done: dragging the dashboard button to your bookmarks bar,
+then visiting any external site with images and clicking the bookmarklet,
+shows an overlay of qualifying images; clicking one opens your discovery
+form pre-filled with that image's URL and the page's title.
+
+============================================================
+PHASE 44 — DISCOVERY DETAIL VIEW & CANONICAL URL
+============================================================
+Book ref: "Creating the detail view for images"
+
+Tasks:
+[ ] Build a discovery_detail view taking an id and slug, using
+    get_object_or_404 to fetch the matching Discovery
+[ ] Add get_absolute_url() to the Discovery model, reversing to this
+    view with both parameters
+[ ] Wire the URL pattern (matching an integer id and a slug)
+[ ] Build the detail template: show the cover image, the notes, a count
+    of interested readers, and a list of those readers (showing their
+    profile photo where available and their first name) — use {% with %}
+    to avoid evaluating the same count/list query more than once
+
+Deliverable: discovery_detail view, get_absolute_url(), detail template
+Definition of done: the redirect from Phase 42's create view now works
+end-to-end, landing you on a working detail page for the book you just
+bookmarked.
+
+============================================================
+PHASE 45 — COVER IMAGE THUMBNAILS VIA EASY-THUMBNAILS
+============================================================
+Book ref: "Creating image thumbnails using easy-thumbnails"
+
+Tasks:
+[ ] Install easy-thumbnails and add it to INSTALLED_APPS
+[ ] Run migrate to apply its own migrations
+[ ] In the detail template, replace the raw cover image tag with
+    easy-thumbnails' template tag, requesting a fixed width with a
+    flexible height (0) so the aspect ratio is preserved, wrapped in a
+    link to the full-size original
+[ ] Confirm a thumbnail file gets generated alongside the original the
+    first time the page loads, and reused on subsequent loads
+
+Deliverable: thumbnail generation wired into the detail template
+Definition of done: the detail page shows a properly-sized thumbnail
+(not the raw original), and you can open the full-size original via the
+link around it.
+
+============================================================
+PHASE 46 — ASYNCHRONOUS INTEREST TOGGLING WITH JAVASCRIPT
+============================================================
+Book ref: "Adding asynchronous actions with JavaScript", "Loading
+          JavaScript on the DOM", "Cross-site request forgery for HTTP
+          requests in JavaScript", "Performing HTTP requests with
+          JavaScript"
+
+Tasks:
+[ ] Add a `domready` template block to the shared base template
+    (Phase 39's consolidated one), wrapped in a script tag that runs its
+    contents once the DOM has fully loaded — this is what individual
+    pages will fill in with their own page-specific JavaScript
+[ ] Load a small cookie-reading JS library from a public CDN in the
+    shared base template, and use it to read Django's CSRF cookie into a
+    JavaScript constant available to every page
+[ ] Build a login-required, POST-only discovery_interest view: read an
+    id and an action from the POST body, look up the matching Discovery,
+    and either add or remove the current user from its interested-readers
+    set depending on the action, returning a small JSON payload
+    indicating success (or a JSON error payload if the id is missing or
+    doesn't match anything)
+[ ] Wire its URL
+[ ] Update the detail template: add an "I'm interested" / "Remove
+    interest" link carrying the discovery's id and its current action as
+    data attributes, computed from whether the current user is already
+    in the interested-readers set
+[ ] In the detail template's domready block: build the target URL for
+    the interest view; attach a click handler to the link that prevents
+    its default navigation, packages the id/action data attributes plus
+    the CSRF token into a request, sends it with the Fetch API, and on a
+    successful JSON response toggles the link's label/data-action and
+    updates the displayed interested-reader count in place (no page
+    reload)
+
+Deliverable: domready block + CSRF cookie script in the shared base
+template, discovery_interest view + URL, detail template's
+interest-toggle JavaScript
+Definition of done: clicking "I'm interested" on a discovery updates the
+count and the button label immediately, without a page reload; clicking
+it again ("Remove interest") reverses it.
+
+============================================================
+PHASE 47 — DISCOVERY LIST WITH INFINITE SCROLL PAGINATION
+============================================================
+Book ref: "Adding infinite scroll pagination to the image list"
+
+Tasks:
+[ ] Build a single discovery_list view that serves double duty: paginate
+    all Discovery objects (8 per page is a reasonable starting point),
+    and branch its response based on whether a `partial` GET parameter is
+    present — if so, render only the fragment template with that page's
+    items (and, if the requested page is out of range, return an empty
+    response so the client-side script knows to stop); otherwise render
+    the full list page
+[ ] Wire its URL
+[ ] Build the fragment template: loop over the page of discoveries,
+    showing a cropped square thumbnail (easy-thumbnails' smart-crop
+    option is worth using here) and title for each, linking to its detail
+    page
+[ ] Build the full list template: extend the shared base, include the
+    fragment template once for the initial page load, and add a
+    `domready` block containing the infinite-scroll logic
+[ ] The infinite-scroll script needs: page/empty/in-flight state
+    variables; a scroll event listener that checks how close the user is
+    to the bottom of the page and, if close enough and not already
+    waiting on a request and not already at the end, fetches the next
+    page with the `partial` flag set, appending the returned HTML to the
+    list container (or marking the end reached, if the response was
+    empty); and a simulated initial scroll event fired once on load, so
+    short pages that don't need scrolling still trigger a check
+[ ] Add a nav link to the discovery list into the shared base template's
+    menu
+
+Deliverable: discovery_list view, list + fragment templates, infinite
+scroll JavaScript, nav link
+Definition of done: the list page loads its first page of discoveries
+immediately, and scrolling toward the bottom transparently loads further
+pages until there are none left — visible both in the browser and in
+your dev server's request log.
+
+============================================================
+MANAGEMENT COMMAND CHEAT SHEET — CHAPTER 6 ADDITIONS
+============================================================
+python manage.py startapp discoveries
+python -m pip install requests==2.31.0
+python -m pip install easy-thumbnails==2.8.5
+python manage.py makemigrations discoveries
+python manage.py migrate discoveries
+python manage.py migrate                    # for easy_thumbnails' own tables
+python manage.py runserver_plus --cert-file cert.crt
+
+============================================================
+DOMAIN MAPPING TABLE — CHAPTER 6 ADDITIONS
+============================================================
+images app                       -> discoveries app
+Image model                       -> Discovery model
+Image.user                         -> Discovery.submitted_by
+Image.url                           -> Discovery.source_url
+Image.image                          -> Discovery.cover_image
+Image.description                     -> Discovery.notes
+Image.users_like                       -> Discovery.readers_interested
+ImageCreateForm                         -> DiscoveryCreateForm
+image_create/detail/like/list             -> discovery_create/detail/
+                                              interest/list
+images_only GET param                      -> partial
+"Like"/"Unlike" button text                 -> "I'm interested"/"Remove
+                                                interest"
+user.profile.photo                           -> user.readerprofile.photo
+bookmarklet vocabulary                        -> unchanged (already fits)
+
+============================================================
+OUT OF SCOPE (deliberately excluded — covered in Chapter 7)
+============================================================
+- A follow system between readers
+- An activity stream
+- Generic relations
+- Django signals (this would also be where the Chapter 4/5 gap — admin-
+  created users not getting an automatic ReaderProfile — finally gets
+  closed, but not in this chapter)
+- Denormalization techniques
+- Using Redis to count views and rank content
+
+END OF ROADMAP

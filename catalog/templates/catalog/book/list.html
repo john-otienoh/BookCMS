@@ -73,7 +73,10 @@
         </article>
         {% endfor %}
     </div>
-
+    {% if not tag %}
+      {% load catalog_tags %}
+      {% show_all_tags %}
+    {% endif %}
     <!-- Pagination -->
     {% include "pagination.html" with page=books %}
 

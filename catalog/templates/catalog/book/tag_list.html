@@ -1,0 +1,13 @@
+{% if tags %}
+<section class="my-10">
+  <h2 class="font-serif text-xl font-bold text-slate-900 dark:text-white mb-4">Browse by tag</h2>
+  <div class="flex flex-wrap gap-2">
+    {% for t in tags %}
+      <a href="{% url 'catalog:book_list_by_tag' t.slug %}"
+         class="rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-primary-100 dark:hover:bg-primary-900 hover:text-primary-700 dark:hover:text-primary-300 transition">
+        {{ t.name }}
+      </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}

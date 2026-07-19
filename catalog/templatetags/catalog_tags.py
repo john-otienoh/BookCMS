@@ -1,5 +1,6 @@
 from django import template
 from ..models import Book
+from taggit.models import Tag
 import markdown
 from django.utils.safestring import mark_safe
 from django.db.models import Count
@@ -25,3 +26,8 @@ def get_most_reviewed_books(count=4):
 @register.filter(name='markdown')
 def markdown_format(text):
     return mark_safe(markdown.markdown(text))
+
+@register.inclusion_tag('catalog/book/tag_list.html')
+def show_all_tags():
+    tags = Tag.objects.all()
+    return {'tags': tags}
